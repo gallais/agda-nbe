@@ -20,6 +20,13 @@ The repository is organized in this way:
 
   Simply typed lambda calculus.
 
+
+* stlci/
+
+  Simply typed lambda calculus with a universe of finitely
+  branching inductive skeleton and their eliminators /
+  recursors.
+
 # Development versions
 
 This repository will host only (quite) stable formalizations.
