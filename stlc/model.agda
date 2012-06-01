@@ -20,7 +20,7 @@ mutual
     app : ∀ {σ τ} (f : Γ ⊢ne σ ▹ τ) (x : Γ ⊢nf σ) → Γ ⊢ne τ
 
   data _⊢nf_ (Γ : Con ty) : ty → Set where
-    neu : ∀ {♭} (t : Γ ⊢ne ♭) → Γ ⊢nf ♭
+    neu : ∀ (t : Γ ⊢ne ♭) → Γ ⊢nf ♭
     lam : ∀ {σ τ} (t : Γ ∙ σ ⊢nf τ) → Γ ⊢nf σ ▹ τ
 
 mutual
