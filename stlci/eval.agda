@@ -185,9 +185,13 @@ norm = back-nf ∘ to-the-future
 ε⊢ne-empty (pμ m t) = ε⊢ne-empty m
 ε⊢ne-empty (μμ m t) = ε⊢ne-empty m
 
-consistency : (t : ε ⊢ Ø) → ⊥
-consistency t with to-the-future t
-... | ⇈Ø ne = ε⊢ne-empty ne
+no-empty-nf : (t : ε ⊢nf μ []) → ⊥
+no-empty-nf (⇈μ ne) = ε⊢ne-empty ne
+no-empty-nf (:C (:r t)) = no-empty-nf t
+no-empty-nf (:C (mF _ ne)) = ε⊢ne-empty ne
+
+consistency : (t : ε ⊢ μ []) → ⊥
+consistency t = no-empty-nf (to-the-future t)
 
 {- The normalization gives you back a reduct of the original
    term which entails that it is sound: two elements which

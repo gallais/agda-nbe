@@ -25,8 +25,6 @@ data ind : Set where
   _+_ _×_ : (d₁ d₂ : ind) → ind
 
 data ty : Set where
--- empty type
-  Ø : ty
 -- arrow type
   _▹_ : (σ τ : ty) → ty
 -- application of a functor to a type

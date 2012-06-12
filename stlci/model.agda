@@ -23,7 +23,6 @@ mutual
 
   data _⊢nf_ (Γ : Con ty) : ty → Set where
     ⇈μ : {d : ind} (t : Γ ⊢ne μ d) → Γ ⊢nf μ d
-    ⇈Ø : (t : Γ ⊢ne Ø) → Γ ⊢nf Ø
     :λ : {σ τ : ty} (t : Γ ∙ σ ⊢nf τ) → Γ ⊢nf σ ▹ τ
     :C : {d : ind} (t : Γ ⊢nf F[ d ] (μ d)) → Γ ⊢nf μ d
 -- How to deal with functors on the goal's side
@@ -51,7 +50,6 @@ mutual
 mutual
 
   back-nf : ∀ {Γ σ} (t : Γ ⊢nf σ) → Γ ⊢ σ
-  back-nf (⇈Ø t) = back-ne t
   back-nf (⇈μ t) = back-ne t
   back-nf (:λ t) = :λ (back-nf t)
   back-nf (:C t) = :C (back-nf t)
@@ -77,7 +75,6 @@ mutual
 
   weaken-nf : ∀ {Γ Δ σ} → Γ ⊆ Δ → Γ ⊢nf σ → Δ ⊢nf σ
   weaken-nf inc (⇈μ t) = ⇈μ (weaken-ne inc t)
-  weaken-nf inc (⇈Ø t) = ⇈Ø (weaken-ne inc t)
   weaken-nf inc (:λ t) = :λ (weaken-nf (pop! inc) t)
   weaken-nf inc (:C t) = :C (weaken-nf inc t)
   weaken-nf inc :u = :u
@@ -123,7 +120,6 @@ data _⊩μ_[_] (Δ : Con ty) (d : ind) : (t : Δ ⊢ μ d) → Set where
   :C : ∀ {s t} (v : Δ ⊩F[ d ] (λ Δ s → Δ ⊩μ d [ s ]) [ t ]) (r : s ▹⋆ :C t) → Δ ⊩μ d [ s ]
 
 _⊩τ_[_] : (Γ : Con ty) (σ : ty) (t : Γ ⊢ σ) → Set
-Γ ⊩τ Ø [ t ] = Σ (Γ ⊢ne Ø) (λ u → t ▹⋆ back-ne u)
 Γ ⊩τ F[ d ] σ [ t ] = Γ ⊩F[ d ] (λ Δ s → Δ ⊩τ σ [ s ]) [ t ]
 Γ ⊩τ μ d [ t ] = Γ ⊩μ d [ t ]
 Γ ⊩τ σ ▹ τ [ t ] = ∀ {Δ} (inc : Γ ⊆ Δ) {s : Δ ⊢ σ} (v : Δ ⊩τ σ [ s ])
@@ -132,7 +128,6 @@ _⊩τ_[_] : (Γ : Con ty) (σ : ty) (t : Γ ⊢ σ) → Set
 
 {- Environments are pointwise interpretations of context
    realizers in the model. -}
-
 
 _⊩ε_[_] : (Δ Γ : Con ty) → Δ ⊩ Γ → Set
 Δ ⊩ε ε [ _ ] = ⊤
@@ -151,7 +146,6 @@ mutual
   back-weaken-nf : ∀ {Γ Δ σ} (inc : Γ ⊆ Δ) (t : Γ ⊢nf σ) →
                    back-nf (weaken-nf inc t) ≡ weaken inc (back-nf t)
   back-weaken-nf inc (⇈μ t) = back-weaken-ne inc t
-  back-weaken-nf inc (⇈Ø t) = back-weaken-ne inc t
   back-weaken-nf inc (:λ t) = cong :λ (back-weaken-nf (pop! inc) t)
   back-weaken-nf inc (:C t) = cong :C (back-weaken-nf inc t)
   back-weaken-nf inc :u = refl
@@ -189,9 +183,6 @@ mutual
 mutual
 
   ⊩τ-weaken : ∀ {Γ Δ} σ (pr : Γ ⊆ Δ) {t} (v : Γ ⊩τ σ [ t ]) → Δ ⊩τ σ [ weaken pr t ]
-  ⊩τ-weaken Ø pr (v , Hv) =
-    weaken-ne pr v ,
-    coerce (_▹⋆_ (weaken pr _)) (sym (back-weaken-ne pr v)) (▹⋆-cong (▹-weaken pr) Hv)
   ⊩τ-weaken (σ ▹ τ) pr f =
     λ inc {s} v {ts} r → f (⊆-trans pr inc) v (coerce (λ t → ts ▹⋆ :a t s) (weaken² pr inc _) r)
   ⊩τ-weaken (F[ d ] σ) pr v = ⊩F-weaken pr (⊩τ-weaken σ pr) v
@@ -224,7 +215,6 @@ mutual
 ⊩μ-⋆◃ rs (:C v r) = :C v (▹⋆-trans rs r)
 
 ⊩τ-⋆◃ : ∀ τ {Γ s t} (rs : Γ ⊢ τ ∋ s ▹⋆ t) → Γ ⊩τ τ [ t ] → Γ ⊩τ τ [ s ]
-⊩τ-⋆◃ Ø rs (v , Hv) = v , ▹⋆-trans rs Hv
 ⊩τ-⋆◃ (σ ▹ τ) rs f = λ inc v r → f inc v (▹⋆-trans r (▹⋆-cong (:a₁ ∘ (▹-weaken inc)) rs))
 ⊩τ-⋆◃ (F[ d ] τ) rs v = ⊩F-⋆◃ rs v
 ⊩τ-⋆◃ (μ d) rs v = ⊩μ-⋆◃ rs v
@@ -272,13 +262,11 @@ F[ d , σ ] t ▹⋆↑[ ⇈X ] mF f v r =
 mutual
 
   ↑[_]_ : ∀ {Γ} σ {t : Γ ⊢ σ} → Γ ⊩τ σ [ t ] → Γ ⊢nf σ
-  ↑[ Ø ] v = ⇈Ø (proj₁ v)
   ↑[ F[ d ] σ ] v = ↑F[ d , σ ] (λ _ → ↑[_]_ σ) [ v ]
   ↑[ μ d ] v = ↑μ[ d ] v
   ↑[ σ ▹ τ ] v = :λ (↑[ τ ] v (step (same _)) (↓[ σ ] :v here!) refl)
 
   ↓[_]_ : ∀ {Γ} σ (t : Γ ⊢ne σ) → Γ ⊩τ σ [ back-ne t ]
-  ↓[ Ø ] t = t , refl
   ↓[ F[ d ] σ ] t =
     mF (λ inc s → ⊩τ-⋆◃ σ (step (:β (:v here!) (back-ne s)) refl) (↓[ σ ] s)) t (step mFid refl)
   ↓[ μ d ] t = :ne t refl
@@ -291,7 +279,6 @@ mutual
     (↓[ τ ] :a (weaken-ne inc t) (↑[ σ ] v)))
 
   [_]_▹⋆↑_ : ∀ σ {Γ} (t : Γ ⊢ σ) (v : Γ ⊩τ σ [ t ]) → t ▹⋆ back-nf (↑[ σ ] v)
-  [ Ø ] t ▹⋆↑ v = proj₂ v
   [ F[ d ] σ ] t ▹⋆↑ v = F[ d , σ ] t ▹⋆↑[ [_]_▹⋆↑_ σ _ ] v
   [ μ d ] t ▹⋆↑ v = μ[ d ] t ▹⋆↑ v
   [ σ ▹ τ ] t ▹⋆↑ v = step (:η t) (▹⋆-cong :λ ([ τ ] :a (weaken _ t) (:v here!) ▹⋆↑ v _ _ refl))
