@@ -1,11 +1,16 @@
 module tools.closures where
 
+open import Relation.Binary.PropositionalEquality
+
 data reftranclos {A : Set} (P : A → A → Set) : A → A → Set where
   refl : {t : A} → reftranclos P t t
   step : {s t u : A} (p : P s t) (p₁ : reftranclos P t u) → reftranclos P s u
 
 _▹[_]⋆_ : {A : Set} (s : A) (P : A → A → Set) (t : A) → Set
 s ▹[ P ]⋆ t = reftranclos P s t
+
+≡-step : ∀ {A : Set} {P} {a a' b : A} (eq : a ≡ a') (r : a' ▹[ P ]⋆ b) → a ▹[ P ]⋆ b
+≡-step refl r = r
 
 ▹⋆-cong : ∀ {A B : Set} {P Q} {f : A → B} (cg : {a a' : A} (p : P a a') → Q (f a) (f a')) →
           {s t : A} (p : s ▹[ P ]⋆ t) → f s ▹[ Q ]⋆ f t

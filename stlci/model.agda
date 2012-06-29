@@ -2,7 +2,7 @@ module stlci.model where
 
 open import Data.Unit
 open import Data.Product renaming (_×_ to _⊗_)
-open import Function
+open import Function hiding (id)
 open import Relation.Binary.PropositionalEquality renaming (subst to coerce ; subst₂ to coerce₂)
 
 open import tools.contexts
@@ -32,7 +32,7 @@ mutual
     :+₂ : {d₁ d₂ : ind} {σ : ty} (t : Γ ⊢nf F[ d₂ ] σ) → Γ ⊢nf F[ d₁ + d₂ ] σ
     :× : {d₁ d₂ : ind} {σ : ty} (t₁ : Γ ⊢nf F[ d₁ ] σ) (t₂ : Γ ⊢nf F[ d₂ ] σ) → Γ ⊢nf F[ d₁ × d₂ ] σ
 -- map on functors
-    mF : {d : ind} {σ τ : ty} (f : Γ ⊢nf σ ▹ τ) (v : Γ ⊢ne F[ d ] σ) → Γ ⊢nf F[ d ] τ
+    mF : {d₁ d₂ : ind} {σ τ : ty} (f : Γ ⊢nf σ ▹ τ) (v : Γ ⊢ne F[ d₁ + d₂ ] σ) → Γ ⊢nf F[ d₁ + d₂ ] τ
 
   data _⊢ne_ (Γ : Con ty) : ty → Set where
     :v : {σ : ty} (pr : σ ∈ Γ) → Γ ⊢ne σ
@@ -112,8 +112,9 @@ data F[d]X (Γ : Con ty) {σ} (X : ∀ Δ (s : Δ ⊢ σ) → Set) :
   :+₂ : ∀ {d₁ d₂ s t} (v₂ : Γ ⊩F[ d₂ ] X [ t ]) (r : s ▹⋆ :+₂ t) → Γ ⊩F[ d₁ + d₂ ] X [ s ]
   :× : ∀ {d₁ d₂ s t₁ t₂} (v₁ : Γ ⊩F[ d₁ ] X [ t₁ ]) (v₂ : Γ ⊩F[ d₂ ] X [ t₂ ] ) →
        (r : s ▹⋆ :× t₁ t₂) → Γ ⊩F[ d₁ × d₂ ] X [ s ]
-  mF : ∀ {τ d s t} (f : ∀ {Δ} (inc : Γ ⊆ Δ) (s : Δ ⊢ne τ) → X Δ (:a (weaken inc t) (back-ne s)))
-       (v : Γ ⊢ne F[ d ] τ) (r : s ▹⋆ mF t (back-ne v)) → Γ ⊩F[ d ] X [ s ]
+  mF : ∀ {d₁ d₂ τ s f}
+       (F : ∀ {Δ} (inc : Γ ⊆ Δ) (s : Δ ⊢ne τ) → X Δ (:a (weaken inc f) (back-ne s)))
+       (t : Γ ⊢ne F[ d₁ + d₂ ] τ) (r : s ▹⋆ mF f (back-ne t)) → Γ ⊩F[ d₁ + d₂ ] X [ s ]
 
 data _⊩μ_[_] (Δ : Con ty) (d : ind) : (t : Δ ⊢ μ d) → Set where
   :ne : ∀ {t} (v : Δ ⊢ne μ d) (r : t ▹⋆ back-ne v) → Δ ⊩μ d [ t ]
@@ -174,7 +175,7 @@ mutual
 ⊩F-weaken pr wX (:+₁ v r) = :+₁ (⊩F-weaken pr wX v) (▹⋆-cong (▹-weaken pr) r)
 ⊩F-weaken pr wX (:+₂ v r) = :+₂ (⊩F-weaken pr wX v) (▹⋆-cong (▹-weaken pr) r)
 ⊩F-weaken pr wX (:× v₁ v₂ r) = :× (⊩F-weaken pr wX v₁) (⊩F-weaken pr wX v₂) (▹⋆-cong (▹-weaken pr) r)
-⊩F-weaken {Γ} {Δ} {d} {σ} {X} pr {s} wX (mF {τ} {._} {._} {f} F v r) =
+⊩F-weaken {Γ} {Δ} {d₁ + d₂} {σ} {X} pr {s} wX (mF {._} {._} {τ} {._} {f} F v r) =
   mF (λ inc v → coerce (λ t → X _ (:a t (back-ne v))) (sym (weaken² pr inc f))
   (F (⊆-trans pr inc) v)) (weaken-ne pr v) (coerce (λ v → weaken pr s ▹⋆ mF (weaken pr f) v)
   (sym (back-weaken-ne pr v)) (▹⋆-cong (▹-weaken pr) r))
@@ -227,12 +228,12 @@ mutual
 ↑F[_,_]_[_] : ∀ {Γ} d σ {X} {t : Γ ⊢ F[ d ] σ}
               (↑X : ∀ {Δ} {s} (pr : Γ ⊆ Δ) → X Δ s → Δ ⊢nf σ) →
               Γ ⊩F[ d ] X [ t ] → Γ ⊢nf F[ d ] σ
-↑F[ .◾ , σ ] ↑X [ :u ] = :u
-↑F[ .[] , σ ] ↑X [ :r v r ] = :r (↑X (same _) v)
-↑F[ .(d₁ + d₂) , σ ] ↑X [ :+₁ {d₁} {d₂} v r ] = :+₁ (↑F[ d₁ , σ ] ↑X [ v ])
-↑F[ .(d₁ + d₂) , σ ] ↑X [ :+₂ {d₁} {d₂} v r ] = :+₂ (↑F[ d₂ , σ ] ↑X [ v ])
-↑F[ .(d₁ × d₂) , σ ] ↑X [ :× {d₁} {d₂} v₁ v₂ r ] = :× (↑F[ d₁ , σ ] ↑X [ v₁ ]) (↑F[ d₂ , σ ] ↑X [ v₂ ])
-↑F[ d , σ ] ↑X [ mF f v r ] = mF (:λ (↑X (step (same _)) (f (step (same _)) (:v here!)))) v
+↑F[ ◾ , σ ] ↑X [ :u ] = :u
+↑F[ [] , σ ] ↑X [ :r v r ] = :r (↑X (same _) v)
+↑F[ d₁ + d₂ , σ ] ↑X [ :+₁ v r ] = :+₁ (↑F[ d₁ , σ ] ↑X [ v ])
+↑F[ d₁ + d₂ , σ ] ↑X [ :+₂ v r ] = :+₂ (↑F[ d₂ , σ ] ↑X [ v ])
+↑F[ d₁ × d₂ , σ ] ↑X [ :× v₁ v₂ r ] = :× (↑F[ d₁ , σ ] ↑X [ v₁ ]) (↑F[ d₂ , σ ] ↑X [ v₂ ])
+↑F[ d₁ + d₂ , σ ] ↑X [ mF f v r ] = mF (:λ (↑X (step (same _)) (f (step (same _)) (:v here!)))) v
 
 F[_,_]_▹⋆↑[_]_ : ∀ d σ {Γ X} {↑X : ∀ {Δ} {s} (pr : Γ ⊆ Δ) → X Δ s → Δ ⊢nf σ} (t : Γ ⊢ F[ d ] σ)
                  (⇈X : ∀ {Δ s pr} (v : X Δ s) → s ▹⋆ back-nf (↑X pr v)) (v : Γ ⊩F[ d ] X [ t ]) →
@@ -244,8 +245,8 @@ F[ d₁ + d₂ , σ ] t ▹⋆↑[ ⇈X ] :+₂ v r = ▹⋆-trans r (▹⋆-con
 F[ d₁ × d₂ , σ ] t ▹⋆↑[ ⇈X ] :× v₁ v₂ r =
   ▹⋆-trans r (▹⋆-trans (▹⋆-cong :×₁ (F[ d₁ , σ ] _ ▹⋆↑[ ⇈X ] v₁))
   (▹⋆-cong :×₂ (F[ d₂ , σ ] _ ▹⋆↑[ ⇈X ] v₂)))
-F[ d , σ ] t ▹⋆↑[ ⇈X ] mF f v r =
-  ▹⋆-trans r (▹⋆-cong {f = λ t → mF t (back-ne v)} mF₂ (step (:η _)
+F[ d₁ + d₂ , σ ] t ▹⋆↑[ ⇈X ] mF f v r =
+  ▹⋆-trans r (▹⋆-cong {f = λ t → mF t (back-ne v)} mF₂ (step (:ηλ _)
   (▹⋆-cong :λ (⇈X (f (step (⊆-refl _)) (:v here!))))))
 
 {-# NO_TERMINATION_CHECK #-}
@@ -267,8 +268,25 @@ mutual
   ↑[ σ ▹ τ ] v = :λ (↑[ τ ] v (step (same _)) (↓[ σ ] :v here!) refl)
 
   ↓[_]_ : ∀ {Γ} σ (t : Γ ⊢ne σ) → Γ ⊩τ σ [ back-ne t ]
-  ↓[ F[ d ] σ ] t =
-    mF (λ inc s → ⊩τ-⋆◃ σ (step (:β (:v here!) (back-ne s)) refl) (↓[ σ ] s)) t (step mFid refl)
+  ↓[ F[ ◾ ] σ ] t = :u
+  ↓[ F[ [] ] σ ] t = 
+    :r (⊩τ-⋆◃ σ (▹⋆-cong {f = λ f → p[] (back-ne t) (:λ f)} (λ p → :p[]₂ (:λ p))
+       ([ σ ] :v here! ▹⋆↑ (↓[ σ ] :v here!)))
+       -- value of the hole: p[] t id
+       (↓[ σ ] p[] t (:λ (↑[ σ ] (↓[ σ ] (:v here!))))))
+    (step (:ηr (back-ne t)) refl)
+  ↓[ F[ d₁ × d₂ ] σ ] t = 
+    :× (⊩τ-⋆◃ (F[ d₁ ] σ) (▹⋆-cong {f = λ f → p× (back-ne t) (:λ (:λ f))} (λ p → :p×₂ (:λ (:λ p)))
+       ([ _ ] :v (there here!) ▹⋆↑ ↓[ _ ] :v (there here!)))
+       -- value of the first component: p× t fst
+       (↓[ F[ d₁ ] σ ] p× t (:λ (:λ (↑[ _ ] (↓[ _ ] :v (there here!)))))))
+      
+       (⊩τ-⋆◃ (F[ d₂ ] σ) (▹⋆-cong {f = λ f → p× (back-ne t) (:λ (:λ f))} (λ p → :p×₂ (:λ (:λ p)))
+       ([ _ ] :v here! ▹⋆↑ ↓[ _ ] :v here!))
+       -- value of the second component: p× t snd
+       (↓[ F[ d₂ ] σ ] p× t (:λ (:λ (↑[ _ ] (↓[ _ ] :v here!))))))
+    (step (:η× (back-ne t)) refl)
+  ↓[ F[ d₁ + d₂ ] σ ] t = mF (λ inc s → ⊩τ-⋆◃ σ (step (:β _ _) refl) (↓[ σ ] s)) t (step mFid refl)
   ↓[ μ d ] t = :ne t refl
   ↓[ σ ▹ τ ] t =
     λ {Δ} inc {s} v {ts} r →
@@ -281,7 +299,7 @@ mutual
   [_]_▹⋆↑_ : ∀ σ {Γ} (t : Γ ⊢ σ) (v : Γ ⊩τ σ [ t ]) → t ▹⋆ back-nf (↑[ σ ] v)
   [ F[ d ] σ ] t ▹⋆↑ v = F[ d , σ ] t ▹⋆↑[ [_]_▹⋆↑_ σ _ ] v
   [ μ d ] t ▹⋆↑ v = μ[ d ] t ▹⋆↑ v
-  [ σ ▹ τ ] t ▹⋆↑ v = step (:η t) (▹⋆-cong :λ ([ τ ] :a (weaken _ t) (:v here!) ▹⋆↑ v _ _ refl))
+  [ σ ▹ τ ] t ▹⋆↑ v = step (:ηλ t) (▹⋆-cong :λ ([ τ ] :a (weaken _ t) (:v here!) ▹⋆↑ v _ _ refl))
 
 -- definition of the trivial environment
 
@@ -291,3 +309,25 @@ mutual
 Γ⊩ε_ : (Γ : Con ty) → Γ ⊩ε Γ [ Γ⊩ Γ ]
 Γ⊩ε ε = tt
 Γ⊩ε (Γ ∙ γ) = ⊩τvar γ , ⊩ε-weaken Γ (step (same Γ)) (Γ⊩ε Γ)
+
+-- neutral map
+
+⊩τ-mF : ∀ {d Γ σ τ f}
+  (F : ∀ {Δ} (inc : Γ ⊆ Δ) (s : Δ ⊢ne τ) → Δ ⊩τ σ [ :a (weaken inc f) (back-ne s) ])
+  (t : Γ ⊢ne F[ d ] τ) → Γ ⊩τ F[ d ] σ [ mF f (back-ne t) ]
+⊩τ-mF {◾} F t = :u
+⊩τ-mF {[]} F t =
+  :r (F (same _) (p[] t (:λ (↑[ _ ] (↓[ _ ] :v here!)))))
+     (step (mF₁ (:ηr (back-ne t))) (step mF[]
+     (≡-step (cong (λ t → :r (:a t _)) (sym (weaken-same _)))
+     (▹⋆-cong {f = λ f → :r (:a _ (p[] _ (:λ f)))} (λ p → :r (:a₂ (:p[]₂ (:λ p))))
+              ([ _ ] :v here! ▹⋆↑ ↓[ _ ] :v here!)))))
+⊩τ-mF {d₁ × d₂} F t =
+  :× (⊩τ-mF {d₁} F (p× t (:λ (:λ (↑[ _ ] (↓[ _ ] :v (there here!)))))))
+     (⊩τ-mF {d₂} F (p× t (:λ (:λ (↑[ _ ] (↓[ _ ] :v here!))))))
+     (step (mF₁ (:η× (back-ne t))) (step mF× (▹⋆-trans
+     (▹⋆-cong {f = λ f → :× (mF _ (p× _ (:λ (:λ f)))) _} (λ p → :×₁ (mF₁ (:p×₂ (:λ (:λ p)))))
+              ([ _ ] :v (there here!) ▹⋆↑ ↓[ _ ] :v (there here!)))
+     (▹⋆-cong {f = λ f → :× _ (mF _ (p× _ (:λ (:λ f))))} (λ p → :×₂ (mF₁ (:p×₂ (:λ (:λ p)))))
+              ([ _ ] :v here! ▹⋆↑ ↓[ _ ] :v here!)))))
+⊩τ-mF {d₁ + d₂} F t = mF F t refl

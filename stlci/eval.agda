@@ -25,22 +25,23 @@ lookup (Γ ∙ _) (there pr) (_ , ρ) = lookup Γ pr ρ
 
 -- map
 
-vmap : ∀ {τ σ Γ d} f (t : Γ ⊢ F[ d ] σ ) (F : Γ ⊩τ σ ▹ τ [ f ]) (v : Γ ⊩τ F[ d ] σ [ t ]) →
+vmap : ∀ {τ σ Γ d} f (t : Γ ⊢ F[ d ] σ ) (F : Γ ⊩τ σ ▹ τ [ f ]) (T : Γ ⊩τ F[ d ] σ [ t ]) →
        Γ ⊩τ F[ d ] τ [ mF f t ]
 vmap f t F :u = :u
-vmap f t F (:r {._} {s} v r) =
-  :r (F (same _) v refl) (▹⋆-trans (▹⋆-cong mF₁ r) (step mF[]
-  (coerce (λ t → :r (:a f s) ▹⋆ :r (:a t _)) (sym (weaken-same _)) refl)))
-vmap f t F (:+₁ v r) = :+₁ (vmap f _ F v) (▹⋆-trans (▹⋆-cong mF₁ r) (step mF+₁ refl))
-vmap f t F (:+₂ v r) = :+₂ (vmap f _ F v) (▹⋆-trans (▹⋆-cong mF₁ r) (step mF+₂ refl))
-vmap f t F (:× v₁ v₂ r) = :× (vmap f _ F v₁) (vmap f _ F v₂) (▹⋆-trans (▹⋆-cong mF₁ r) (step mF× refl))
-vmap {τ} f t F (mF {σ} {d} {._} {t'} g v r) =
-  mF (λ {Δ} inc s → F inc (g inc s) (step (:β _ (back-ne s)) (coerce₂
--- conversions
+vmap f t F (:r {._} {s} T r) =
+   :r (F (same _) T refl) (▹⋆-trans (▹⋆-cong mF₁ r)
+   (step mF[] (coerce (λ t → :r (:a f s) ▹⋆ :r (:a t _)) (sym (weaken-same _)) refl)))
+vmap f t F (:+₁ T₁ r) = :+₁ (vmap f _ F T₁) (▹⋆-trans (▹⋆-cong mF₁ r) (step mF+₁ refl))
+vmap f t F (:+₂ T₂ r) = :+₂ (vmap f _ F T₂) (▹⋆-trans (▹⋆-cong mF₁ r) (step mF+₂ refl))
+vmap f t F (:× T₁ T₂ r) = :× (vmap f _ F T₁) (vmap f _ F T₂) (▹⋆-trans (▹⋆-cong mF₁ r) (step mF× refl))
+vmap {τ} f t F (mF {_} {_} {_} {._} {t'} g T r) =
+  mF (λ {Δ} inc s → F inc (g inc s)
+  -- coercions
+  (step (:β _ (back-ne s)) (coerce₂
   (λ t u → :a t (:a u (back-ne s)) ▹⋆ :a (weaken inc f) (:a (weaken inc t') (back-ne s)))
   (subst-pop f (back-ne s) inc) (subst-pop t' (back-ne s) inc) refl)))
--- rest of the computation
-   v (▹⋆-trans (▹⋆-cong mF₁ r) (step (mF² f _ (back-ne v)) refl))
+ -- rest of the computation
+   T (▹⋆-trans (▹⋆-cong mF₁ r) (step (mF² f _ (back-ne T)) refl))
 
 -- fold
 
@@ -48,7 +49,7 @@ vmap {τ} f t F (mF {σ} {d} {._} {t'} g v r) =
 vrec : ∀ {Γ} d {m} σ {f} (M : Γ ⊩τ μ d [ m ]) (F : Γ ⊩τ F[ d ] σ ▹ σ [ f ]) → Γ ⊩τ σ [ μμ m f ]
 vrec d σ {f} (:ne v r) F =
   ⊩τ-⋆◃ σ (▹⋆-trans (▹⋆-cong :μμ₁ r)
-  (▹⋆-cong {f = μμ (back-ne v)} :μμ₂ (step (:η f) (▹⋆-cong {f = :λ} :λ ([ σ ] _ ▹⋆↑ _)))))
+  (▹⋆-cong {f = μμ (back-ne v)} :μμ₂ (step (:ηλ f) (▹⋆-cong {f = :λ} :λ ([ σ ] _ ▹⋆↑ _)))))
   (↓[ σ ] μμ v (:λ (↑[ σ ] F (step (same _)) (↓[ F[ d ] σ ] :v here!) refl)))
 vrec {Γ} d σ {f} (:C {._} {t} v r) F =
   F (same _) (vmap (:λ (μμ (:v here!) (weaken (step (same _)) f))) _
@@ -67,8 +68,8 @@ vapp {Γ} {τ} f x vf vx = coerce (λ f → Γ ⊩τ τ [ :a f x ]) (weaken-same
 
 vmu : ∀ {Γ d m} τ {f} (M : Γ ⊩τ μ d [ m ]) (F : Γ ⊩τ F[ d ] (μ d) ▹ τ [ f ]) → Γ ⊩τ τ [ pμ m f ]
 vmu {Γ} {d} τ {f} (:ne v r) F =
-  ⊩τ-⋆◃ τ (▹⋆-trans
-  (▹⋆-cong :pμ₁ r) (▹⋆-cong {f = pμ (back-ne v)} :pμ₂ (step (:η f) (▹⋆-cong {f = :λ} :λ ([ τ ] _ ▹⋆↑ _)))))
+  ⊩τ-⋆◃ τ (▹⋆-trans (▹⋆-cong :pμ₁ r) (▹⋆-cong {f = pμ (back-ne v)} :pμ₂
+  (step (:ηλ f) (▹⋆-cong {f = :λ} :λ ([ τ ] _ ▹⋆↑ _)))))
   (↓[ τ ] pμ v (:λ (↑[ τ ] F (step (same Γ)) (↓[ F[ d ] (μ d) ] :v here!) refl)))
 vmu τ {f} (:C {._} {t} v r) F =
   F (same _) v (▹⋆-trans (▹⋆-cong :pμ₁ r)
@@ -83,22 +84,6 @@ vtimes {Γ} σ τ {f} (:× {._} {._} {._} {t₁} {t₂} M₁ M₂ r) F =
     (same _) M₂ (▹⋆-trans (▹⋆-cong :p×₁ r) (step :p×
     (coerce₂ (λ f' t₁' → :a (:a f' t₁') t₂ ▹⋆ :a (:a (weaken (same Γ) f) (weaken (same Γ) t₁)) t₂)
     (weaken-same f) (weaken-same t₁) refl)))
-vtimes {Γ} σ τ {f} (mF {υ} {._} {._} {t} g v r) F =
-  ⊩τ-⋆◃ τ (▹⋆-trans (▹⋆-cong :p×₁ r) (step (p×mF _ _) (▹⋆-trans
-  (▹⋆-cong {P = _⊢_∋_▹_ _ τ} {f = λ t → p× (back-ne v) (:λ (:λ t))} (λ r → :p×₂ (:λ (:λ r)))
-  (coerce₂ (λ f' t' → :a (:a (weaken (step (step (same Γ))) f) (mF (weaken (step (step (same Γ))) t)
-  (:v (there here!)))) (mF (weaken (step (step (same Γ))) t) (:v here!)) ▹⋆
-  :a (:a f' (mF t' (:v (there here!)))) (mF (weaken (step (step (same Γ))) t) (:v here!)))
-  (sym (trans (weaken² _ (same _) f) (cong (λ pr → weaken (step (step pr)) f) (⊆-same-l (same Γ)))))
-  (sym (trans (weaken² _ (same _) t) (cong (λ pr → weaken (step (step pr)) t) (⊆-same-l (same Γ))))) refl))
-  (▹⋆-cong {P = _⊢_∋_▹_ _ τ} {f = λ t → p× (back-ne v) (:λ (:λ t))} (λ r → :p×₂ (:λ (:λ r)))
-  ([ τ ] _ ▹⋆↑ _)))))
--- actual computation
-  (↓[ τ ] p× v (:λ (:λ (↑[ τ ] F (step (step (same Γ)))
-  (mF (λ {Δ} inc s → coerce (λ t → Δ ⊩τ σ [ :a t (back-ne s) ]) (sym (weaken² (step (step (same Γ))) inc t))
-    (g (⊆-trans (step (step (same Γ))) inc) s)) (:v (there here!)) refl) refl (same _)
-  (mF (λ {Δ} inc s → coerce (λ t → Δ ⊩τ σ [ :a t (back-ne s) ]) (sym (weaken² (step (step (same Γ))) inc t))
-    (g (⊆-trans (step (step (same Γ))) inc) s)) (:v here!) refl) refl))))
 
 -- rec
 
@@ -106,11 +91,6 @@ vhole : ∀ {σ Γ} τ {m f} (M : Γ ⊩τ F[ [] ] σ [ m ]) (F : Γ ⊩τ σ �
 vhole τ {m} {f} (:r {._} {t} v r) F =
   F (same _) v (▹⋆-trans (▹⋆-cong :p[]₁ r)
   (step :p[] (coerce (λ g → :a g t ▹⋆ :a (weaken (same _) f) t) (weaken-same f) refl)))
-vhole {σ} τ {m} {f} (mF {υ} {._} {._} {t} g v r) F =
-  ⊩τ-⋆◃ τ (▹⋆-trans (▹⋆-cong :p[]₁ r) (step (p[]mF t f) (▹⋆-cong {f = p[] (back-ne v)} :p[]₂
-  (▹⋆-cong {f = :λ} :λ ([ τ ] _ ▹⋆↑ F (step (same _)) (g (step (same _)) (:v here!)) refl)))))
--- actual computation
-  (↓[ τ ] p[] {σ = υ} v (:λ (↑[ τ ] F (step (same _)) (g (step (same _)) (:v here!)) refl)))
 
 -- branch
 
@@ -122,17 +102,21 @@ vplus σ τ {f₁} (:+₁ M r) F₁ F₂ =
 vplus σ τ {f₁} {f₂} (:+₂ M r) F₁ F₂ =
   F₂ (same _) M (▹⋆-trans (▹⋆-cong :p+₁ r)
   (step :p+r (coerce (λ f → :a f _ ▹⋆ :a (weaken (same _) f₂) _) (weaken-same f₂) refl)))
-vplus {Γ} {d₁} {d₂} σ τ {f₁} {f₂} (mF {υ} {._} {._} {t} f v r) F₁ F₂ =
+vplus {Γ} {d₁} {d₂} σ τ {f₁} {f₂} (mF {._} {._} {_} {t} {f} F T r) F₁ F₂ =
+  -- cast
   ⊩τ-⋆◃ τ (▹⋆-trans (▹⋆-cong :p+₁ r) (step (p+mF _ _ _) (▹⋆-trans
-    (▹⋆-cong {P = _⊢_∋_▹_ _ τ} {f = λ t → p+ (back-ne v) (:λ t) _} (:p+₂ ∘ :λ) ([ τ ] _ ▹⋆↑ _))
-    (▹⋆-cong {P = _⊢_∋_▹_ _ τ} {f = λ t → p+ (back-ne v) _ (:λ t)} (:p+₃ ∘ :λ) ([ τ ] _ ▹⋆↑ _)))))
-   (↓[ τ ] p+ v
-   (:λ (↑[ τ ] F₁ (step (same _)) (mF (λ {Δ} inc s → coerce (λ t → Δ ⊩τ σ [ :a t (back-ne s) ])
-       (sym (weaken² (step (same Γ)) inc t)) (f {Δ} (⊆-trans (step (same Γ)) inc) s))
-       (:v here!) refl) refl))
-   (:λ (↑[ τ ] F₂ (step (same _)) (mF (λ {Δ} inc s → coerce (λ t → Δ ⊩τ σ [ :a t (back-ne s) ])
-       (sym (weaken² (step (same Γ)) inc t)) (f {Δ} (⊆-trans (step (same Γ)) inc) s))
-       (:v here!) refl) refl)))
+    (▹⋆-cong {f = λ t → p+ (back-ne T) (:λ t) _} (:p+₂ ∘ :λ) ([ τ ] _ ▹⋆↑ _))
+    (▹⋆-cong {f = λ t → p+ (back-ne T) _ (:λ t)} (:p+₃ ∘ :λ) ([ τ ] _ ▹⋆↑ _)))))
+  -- actual computation: activating a neutral eliminator application
+  (↓[ τ ] p+ T
+    -- first branch
+    (:λ (↑[ τ ] F₁ (step (same _)) (⊩τ-mF (λ {Δ} inc S →
+    coerce (λ g → Δ ⊩τ σ [ :a g (back-ne S) ]) (sym (weaken² (step (same _)) inc f))
+    (F (⊆-trans (step (same _)) inc) S)) (:v here!)) refl))
+    -- second branch
+    (:λ (↑[ τ ] F₂ (step (same _)) (⊩τ-mF (λ {Δ} inc S → 
+    coerce (λ g → Δ ⊩τ σ [ :a g (back-ne S) ]) (sym (weaken² (step (same _)) inc f))
+    (F (⊆-trans (step (same _)) inc) S)) (:v here!)) refl)))
 
 eval : ∀ {Γ Δ σ} (t : Γ ⊢ σ) (ρ : Δ ⊩ Γ) (vs : Δ ⊩ε Γ [ ρ ]) → Δ ⊩τ σ [ subst t ρ ]
 eval (:v pr) ρ vs = lookup _ pr vs
@@ -188,7 +172,6 @@ norm = back-nf ∘ to-the-future
 no-empty-nf : (t : ε ⊢nf μ []) → ⊥
 no-empty-nf (⇈μ ne) = ε⊢ne-empty ne
 no-empty-nf (:C (:r t)) = no-empty-nf t
-no-empty-nf (:C (mF _ ne)) = ε⊢ne-empty ne
 
 consistency : (t : ε ⊢ μ []) → ⊥
 consistency t = no-empty-nf (to-the-future t)

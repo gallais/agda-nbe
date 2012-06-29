@@ -55,6 +55,17 @@ data _⊢_ (Γ : Con ty) : ty → Set where
 -- induction on an inductive type
   μμ : {d : ind} {σ : ty} (m : Γ ⊢ μ d) (t : Γ ⊢ (F[ d ] σ) ▹ σ) → Γ ⊢ σ
 
+-- identity function, projections for pairs
+
+id : ∀ {Γ σ} → Γ ⊢ σ ▹ σ
+id = :λ (:v here!)
+
+fst : ∀ {Γ d₁ d₂ σ} → Γ ⊢ F[ d₁ × d₂ ] σ  → Γ ⊢ F[ d₁ ] σ
+fst t = p× t (:λ (:λ (:v (there here!))))
+
+snd : ∀ {Γ d₁ d₂ σ} → Γ ⊢ F[ d₁ × d₂ ] σ → Γ ⊢ F[ d₂ ] σ
+snd t = p× t (:λ id)
+
 weaken : ∀ {Γ Δ σ} (pr : Γ ⊆ Δ) (t : Γ ⊢ σ) → Δ ⊢ σ
 weaken inc (:v pr) = :v (inc-in inc pr)
 weaken inc (:λ t) = :λ (weaken (pop! inc) t)
@@ -133,9 +144,6 @@ purge (pop! inc) (r , ρ) = r , purge inc ρ
 
 β-reduce : ∀ {Γ σ τ} (t : Γ ∙ σ ⊢ τ) (s : Γ ⊢ σ) → Γ ⊢ τ
 β-reduce {Γ} t s = subst t (s , Γ⊩ Γ)
-
-id : ∀ {Γ σ} → Γ ⊢ σ ▹ σ
-id = :λ (:v here!)
 
 _:∘_ : ∀ {Γ σ τ υ} (g : Γ ⊢ τ ▹ υ) (f : Γ ⊢ σ ▹ τ) → Γ ⊢ σ ▹ υ
 g :∘ f = :λ (:a (weaken (step (same _)) g) (:a (weaken (step (same _)) f) (:v here!)))

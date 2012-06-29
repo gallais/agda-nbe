@@ -41,7 +41,8 @@ data _⊢_∋_▹_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
   :pμ₂ : ∀ {d τ m t₁ t₂} (r : Γ ⊢ F[ d ] (μ d) ▹ τ ∋ t₁ ▹ t₂) → Γ ⊢ τ ∋ pμ m t₁ ▹ pμ m t₂
   :μμ₁ : ∀ {d σ m n t} (r : Γ ⊢ μ d ∋ m ▹ n) → Γ ⊢ σ ∋ μμ m t ▹ μμ n t
   :μμ₂ : ∀ {d σ m t₁ t₂} (r : Γ ⊢ F[ d ] σ ▹ σ ∋ t₁ ▹ t₂) → Γ ⊢ σ ∋ μμ m t₁ ▹ μμ m t₂
--- ι rules
+-- βι rules
+  :β : ∀ {σ τ} t (s : Γ ⊢ σ) → Γ ⊢ τ ∋ :a (:λ t) s ▹ β-reduce t s
   mF[] : ∀ {σ τ m} {t : Γ ⊢ σ ▹ τ} → Γ ⊢ F[ [] ] τ ∋ mF t (:r m) ▹ :r (:a t m)
   mF+₁ : ∀ {d₁ d₂ σ τ m} {t : Γ ⊢ σ ▹ τ} → Γ ⊢ F[ d₁ + d₂ ] τ ∋ mF t (:+₁ m) ▹ :+₁ (mF t m)
   mF+₂ : ∀ {d₁ d₂ σ τ m} {t : Γ ⊢ σ ▹ τ} → Γ ⊢ F[ d₁ + d₂ ] τ ∋ mF t (:+₂ m) ▹ :+₂ (mF t m)
@@ -53,8 +54,6 @@ data _⊢_∋_▹_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
   :pμ  : ∀ {d τ m t} → Γ ⊢ τ ∋ pμ {Γ} {d} (:C m) t ▹ :a t m
   :μμ  : ∀ {d σ m t} → Γ ⊢ σ ∋ μμ {Γ} {d} {σ} (:C m) t ▹
          :a t (mF (:λ (μμ (:v here!) (weaken (step (same Γ)) t))) m)
--- proof irrelevance in unit
-  :u : ∀ {σ s} → Γ ⊢ F[ ◾ ] σ ∋ s ▹ :u
 -- map fusion rules
   mFid : ∀ {d σ x} → Γ ⊢ F[ d ] σ ∋ x ▹ mF id x
   mF² : ∀ {d σ τ υ} (g : Γ ⊢ τ ▹ υ) (f : Γ ⊢ σ ▹ τ) x →
@@ -72,9 +71,11 @@ data _⊢_∋_▹_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
          Γ ⊢ υ ∋ p+ (mF f m) t₁ t₂ ▹ p+ m (t₁ :∘mF[ f ]) (t₂ :∘mF[ f ])
   p×mF : ∀ {σ τ υ d₁ d₂} {m : Γ ⊢ F[ d₁ × d₂ ] σ} (f : Γ ⊢ σ ▹ τ) t →
          Γ ⊢ υ ∋ p× (mF f m) t ▹ p× m (t :∘mF₂[ f ])
--- βη rules
-  :η : ∀ {σ τ} t → Γ ⊢ σ ▹ τ ∋ t ▹ η-expand t
-  :β : ∀ {σ τ} t (s : Γ ⊢ σ) → Γ ⊢ τ ∋ :a (:λ t) s ▹ β-reduce t s
+-- η rules
+  :u : ∀ {σ s} → Γ ⊢ F[ ◾ ] σ ∋ s ▹ :u
+  :ηλ : ∀ {σ τ} t → Γ ⊢ σ ▹ τ ∋ t ▹ η-expand t
+  :η× : ∀ {d₁ d₂ σ} t → Γ ⊢ F[ d₁ × d₂ ] σ ∋ t ▹ :× (fst t) (snd t)
+  :ηr : ∀ {σ} t → Γ ⊢ F[ [] ] σ ∋ t ▹ :r (p[] t id)
 
 {- A bunch of notation for the reflexive, (symmetric,)
    transitive closures of _⊢_∋_▹_. -}
@@ -141,5 +142,7 @@ _≡βη_ {Γ} {τ} s t = s ≡[ _⊢_∋_▹_ Γ τ ]⋆ t
 ▹-weaken pr (p+mF f t₁ t₂) rewrite cmF-weaken pr t₁ f | cmF-weaken pr t₂ f =
   p+mF (weaken pr f) (weaken pr t₁) (weaken pr t₂)
 ▹-weaken pr (p×mF f t) rewrite cmF₂-weaken pr t f = p×mF (weaken pr f) (weaken pr t)
-▹-weaken pr (:η t) rewrite η-weaken pr t = :η (weaken pr t)
+▹-weaken pr (:ηλ t) rewrite η-weaken pr t = :ηλ (weaken pr t)
+▹-weaken pr (:η× t) = :η× (weaken pr t)
+▹-weaken pr (:ηr t) = :ηr (weaken pr t)
 ▹-weaken pr (:β t s) rewrite β-weaken pr t s = :β (weaken (pop! pr) t) (weaken pr s)
