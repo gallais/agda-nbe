@@ -156,26 +156,6 @@ to-the-future {σ} t = ↑[ σ ] (quotient t)
 norm : ∀ {Γ σ} (t : Γ ⊢ σ) → Γ ⊢ σ
 norm = back-nf ∘ to-the-future
 
-{- Because of the existence of normal forms, one can prove
-   that the calculus is consistent. This is the analogous of
-   the cut-elimination procedure. -}
-
-ε⊢ne-empty : ∀ {A} (t : ε ⊢ne A) → ⊥
-ε⊢ne-empty (:v ())
-ε⊢ne-empty (:a t u) = ε⊢ne-empty t
-ε⊢ne-empty (p[] m t) = ε⊢ne-empty m
-ε⊢ne-empty (p+ m t₁ t₂) = ε⊢ne-empty m
-ε⊢ne-empty (p× m t) = ε⊢ne-empty m
-ε⊢ne-empty (pμ m t) = ε⊢ne-empty m
-ε⊢ne-empty (μμ m t) = ε⊢ne-empty m
-
-no-empty-nf : (t : ε ⊢nf μ []) → ⊥
-no-empty-nf (⇈μ ne) = ε⊢ne-empty ne
-no-empty-nf (:C (:r t)) = no-empty-nf t
-
-consistency : (t : ε ⊢ μ []) → ⊥
-consistency t = no-empty-nf (to-the-future t)
-
 {- The normalization gives you back a reduct of the original
    term which entails that it is sound: two elements which
    have the same normal forms are related. -}
