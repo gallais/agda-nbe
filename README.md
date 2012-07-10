@@ -10,18 +10,17 @@ free.
 
 The repository is organized in this way:
 
-* tools/
+* __tools/__
 
   Generic tools to formalize calculi and their reduction
   rules. Currently contains a formalization of transitive
   reflexive (symmetric) closures and contexts.
 
-* stlc/
+* __stlc/__
 
   Simply typed lambda calculus.
 
-
-* stlci/
+* __stlci/__
 
   Simply typed lambda calculus with a universe of finitely
   branching inductive skeleton and their eliminators /
