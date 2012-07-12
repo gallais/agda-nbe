@@ -20,7 +20,7 @@ The repository is organized in this way:
 
   Simply typed lambda calculus.
 
-* __stlcl/
+* __stlcl/__
 
   Simply typed lambda calculus with lists, products and a
   unit type and a reduction relation having special rules
