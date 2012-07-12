@@ -20,6 +20,12 @@ The repository is organized in this way:
 
   Simply typed lambda calculus.
 
+* __stlcl/
+
+  Simply typed lambda calculus with lists, products and a
+  unit type and a reduction relation having special rules
+  to deal with map, fold, append and their combinations.
+
 * __stlci/__
 
   Simply typed lambda calculus with a universe of finitely
