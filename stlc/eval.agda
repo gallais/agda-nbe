@@ -27,12 +27,12 @@ lookup {ε} () vs
 lookup {_ ∙ σ} here! (v , _) = v
 lookup {Γ ∙ _} (there pr) (v , vs) = lookup pr vs
 
-vapp : ∀ {Γ τ σ} f x (vf : Γ ⊩τ σ ▹ τ [ f ]) (vx : Γ ⊩τ σ [ x ]) → Γ ⊩τ τ [ app f x ]
-vapp {Γ} {τ} f x vf vx = coerce (λ f → Γ ⊩τ τ [ app f x ]) (weaken-same f) (vf (same Γ) vx)
+vapp : ∀ {Γ τ σ f x} (vf : Γ ⊩τ σ ▹ τ [ f ]) (vx : Γ ⊩τ σ [ x ]) → Γ ⊩τ τ [ app f x ]
+vapp {Γ} {τ} {σ} {f} {x} vf vx = coerce (λ f → Γ ⊩τ τ [ app f x ]) (weaken-same f) (vf (same Γ) vx)
 
-eval : ∀ {Γ Δ} {σ} (t : Γ ⊢ σ) (ρ : Δ ⊩ Γ) (vs : Δ ⊩ε Γ [ ρ ]) → Δ ⊩τ σ [ subst t ρ ]
-eval (var pr) ρ vs = lookup pr vs
-eval {Γ} {Δ} {σ ▹ τ} (lam t) ρ vs = λ {Ε} {s} inc v →
+eval : ∀ {Γ Δ} {σ} (t : Γ ⊢ σ) {ρ : Δ ⊩ Γ} (vs : Δ ⊩ε Γ [ ρ ]) → Δ ⊩τ σ [ subst t ρ ]
+eval (var pr) vs = lookup pr vs
+eval {Γ} {Δ} {σ ▹ τ} (lam t) {ρ} vs = λ {Ε} {s} inc v →
 {- the model is closed under computations -}
   ⊩τ-◃ (red (weaken (pop! inc) (subst t (var here! , ⊩-weaken Γ (step (same Δ)) ρ))) s)
 {- administrative bullshit -}
@@ -43,11 +43,15 @@ eval {Γ} {Δ} {σ ▹ τ} (lam t) ρ vs = λ {Ε} {s} inc v →
   (trans (cong (λ pr → ⊩-weaken Γ pr ρ) (⊆-step-same inc))
   (sym (⊩-weaken² Γ inc (step (same Ε)) ρ))))) (βsubst t s (⊩-weaken Γ inc ρ)))))
 {- the actual computation -}
-  (eval t (s , ⊩-weaken Γ inc ρ) (v , (⊩ε-weaken Γ inc vs))))
-eval (app t u) ρ vs = vapp (subst t ρ) (subst u ρ) (eval t ρ vs) (eval u ρ vs)
+  (eval t (v , (⊩ε-weaken Γ inc vs))))
+eval (app t u) vs = vapp (eval t vs) (eval u vs)
+
+εeval : ∀ {Δ Ε} Γ (e : Δ ⊩ Γ) {ρ : Ε ⊩ Δ} (vs : Ε ⊩ε Δ [ ρ ]) → Ε ⊩ε Γ [ ⊩² Γ e ρ ]
+εeval ε e vs = tt
+εeval (Γ ∙ σ) (t , e) vs = eval t vs , εeval Γ e vs
 
 quotient : ∀ {Γ σ} (t : Γ ⊢ σ) → Γ ⊩τ σ [ t ]
-quotient {Γ} {σ} t = coerce (λ t → Γ ⊩τ σ [ t ]) (subst-Γ⊩ t) (eval t _ (Γ⊩ε Γ))
+quotient {Γ} {σ} t = coerce (λ t → Γ ⊩τ σ [ t ]) (subst-Γ⊩ t) (eval t (Γ⊩ε Γ))
 
 {- normalization: coming back from the model -}
 

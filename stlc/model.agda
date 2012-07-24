@@ -51,6 +51,28 @@ mutual
   weaken-ne inc (var pr) = var (inc-in inc pr)
   weaken-ne inc (app f x) = app (weaken-ne inc f) (weaken-nf inc x)
 
+mutual
+
+  weaken-nf-refl : ∀ {Γ σ} (t : Γ ⊢nf σ) → t ≡ weaken-nf (same _) t
+  weaken-nf-refl (neu t) = cong neu (weaken-ne-refl t)
+  weaken-nf-refl (lam t) = cong lam (weaken-nf-refl t)
+
+  weaken-ne-refl : ∀ {Γ σ} (t : Γ ⊢ne σ) → t ≡ weaken-ne (same _) t
+  weaken-ne-refl (var pr) = cong var (sym (inc-in-same pr))
+  weaken-ne-refl (app t x) = cong₂ app (weaken-ne-refl t) (weaken-nf-refl x)
+
+mutual
+
+  weaken-ne² : ∀ {Γ Δ Ε σ} (pr₁ : Γ ⊆ Δ) (pr₂ : Δ ⊆ Ε) (t : Γ ⊢ne σ) →
+    weaken-ne pr₂ (weaken-ne pr₁ t) ≡ weaken-ne (⊆-trans pr₁ pr₂) t
+  weaken-ne² pr₁ pr₂ (var pr) = cong var (inc-in² pr₁ pr₂ pr)
+  weaken-ne² pr₁ pr₂ (app t x) = cong₂ app (weaken-ne² pr₁ pr₂ t) (weaken-nf² pr₁ pr₂ x)
+
+  weaken-nf² : ∀ {Γ Δ Ε σ} (pr₁ : Γ ⊆ Δ) (pr₂ : Δ ⊆ Ε) (t : Γ ⊢nf σ) →
+    weaken-nf pr₂ (weaken-nf pr₁ t) ≡ weaken-nf (⊆-trans pr₁ pr₂) t
+  weaken-nf² pr₁ pr₂ (neu t) = cong neu (weaken-ne² pr₁ pr₂ t)
+  weaken-nf² pr₁ pr₂ (lam t) = cong lam (weaken-nf² (pop! pr₁) (pop! pr₂) t)
+
 {- definition of the target model for the normalization by evaluation -}
 
 _⊩τ_[_] : (Γ : Con ty) (τ : ty) → Γ ⊢ τ → Set
