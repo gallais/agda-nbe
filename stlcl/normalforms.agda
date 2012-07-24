@@ -61,6 +61,45 @@ mutual
 
 mutual
 
+  ne-weaken-refl : ∀ {Γ σ} (t : Γ ⊢ne σ) → ne-weaken (same Γ) t ≡ t
+  ne-weaken-refl (`v pr) = cong `v (inc-in-same pr)
+  ne-weaken-refl (t `$ u) = cong₂ _`$_ (ne-weaken-refl t) (nf-weaken-refl u)
+  ne-weaken-refl (`π₁ t) = cong `π₁ (ne-weaken-refl t)
+  ne-weaken-refl (`π₂ t) = cong `π₂ (ne-weaken-refl t)
+  ne-weaken-refl (`fold c n t) = cong₃ `fold (nf-weaken-refl c) (nf-weaken-refl n) (ne-weaken-refl t)
+
+  nf-weaken-refl : ∀ {Γ σ} (t : Γ ⊢nf σ) → nf-weaken (same Γ) t ≡ t
+  nf-weaken-refl (`λ t) = cong `λ (nf-weaken-refl t)
+  nf-weaken-refl `⟨⟩ = refl
+  nf-weaken-refl (a `, b) = cong₂ _`,_ (nf-weaken-refl a) (nf-weaken-refl b)
+  nf-weaken-refl `[] = refl
+  nf-weaken-refl (hd `∷ tl) = cong₂ _`∷_ (nf-weaken-refl hd) (nf-weaken-refl tl)
+  nf-weaken-refl (mappend f xs ys) =
+    cong₃ mappend (nf-weaken-refl f) (ne-weaken-refl xs) (nf-weaken-refl ys)
+
+mutual
+
+  ne-weaken² : ∀ {Γ Δ} (inc : Γ ⊆ Δ) {Ε} (inc' : Δ ⊆ Ε) {σ} (t : Γ ⊢ne σ) →
+    ne-weaken inc' (ne-weaken inc t) ≡ ne-weaken (⊆-trans inc inc') t
+  ne-weaken² inc inc' (`v pr) = cong `v (inc-in² inc inc' pr)
+  ne-weaken² inc inc' (t `$ u) = cong₂ _`$_ (ne-weaken² inc inc' t) (nf-weaken² inc inc' u)
+  ne-weaken² inc inc' (`π₁ t) = cong `π₁ (ne-weaken² inc inc' t)
+  ne-weaken² inc inc' (`π₂ t) = cong `π₂ (ne-weaken² inc inc' t)
+  ne-weaken² inc inc' (`fold c n t) =
+    cong₃ `fold (nf-weaken² inc inc' c) (nf-weaken² inc inc' n) (ne-weaken² inc inc' t)
+
+  nf-weaken² : ∀ {Γ Δ} (inc : Γ ⊆ Δ) {Ε} (inc' : Δ ⊆ Ε) {σ} (t : Γ ⊢nf σ) →
+    nf-weaken inc' (nf-weaken inc t) ≡ nf-weaken (⊆-trans inc inc') t
+  nf-weaken² inc inc' (`λ t) = cong `λ (nf-weaken² (pop! inc) (pop! inc') t)
+  nf-weaken² inc inc' `⟨⟩ = refl
+  nf-weaken² inc inc' (a `, b) = cong₂ _`,_ (nf-weaken² inc inc' a) (nf-weaken² inc inc' b)
+  nf-weaken² inc inc' `[] = refl
+  nf-weaken² inc inc' (hd `∷ tl) = cong₂ _`∷_ (nf-weaken² inc inc' hd) (nf-weaken² inc inc' tl)
+  nf-weaken² inc inc' (mappend f xs ys) =
+    cong₃ mappend (nf-weaken² inc inc' f) (ne-weaken² inc inc' xs) (nf-weaken² inc inc' ys)
+
+mutual
+
   ne-weaken-back : ∀ {Γ Δ σ} (inc : Γ ⊆ Δ) (t : Γ ⊢ne σ) →
                    back-ne (ne-weaken inc t) ≡ ⊢-weaken inc (back-ne t)
   ne-weaken-back inc (`v pr) = refl
