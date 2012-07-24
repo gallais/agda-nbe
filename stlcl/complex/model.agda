@@ -1,4 +1,4 @@
-module stlcl.model where
+module stlcl.complex.model where
 
 open import Data.Unit
 open import Data.Product

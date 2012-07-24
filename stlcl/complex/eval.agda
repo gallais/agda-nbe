@@ -1,4 +1,4 @@
-module stlcl.eval where
+module stlcl.complex.eval where
 
 open import Data.Unit
 open import Data.Product
@@ -8,7 +8,7 @@ open import tools.contexts
 open import tools.closures
 open import stlcl.definition
 open import stlcl.reductions
-open import stlcl.model
+open import stlcl.complex.model
 
 vappend : ∀ {Δ σ xs ys} (XS : Δ ⊩ `list σ [ xs ]) (YS : Δ ⊩ `list σ [ ys ]) →
           Δ ⊩ `list σ [ xs `++ ys ]
