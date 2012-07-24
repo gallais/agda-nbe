@@ -7,7 +7,7 @@ open import Relation.Binary.PropositionalEquality renaming (subst to coerce)
 open import tools.contexts
 open import tools.closures
 open import stlcl.definition
-open import stlcl.reductions
+open import stlcl.normalforms
 open import stlcl.simple.model
 
 vappend : ∀ {Δ σ} (XS : Δ ⊩ `list σ) (YS : Δ ⊩ `list σ) → Δ ⊩ `list σ
