@@ -10,25 +10,24 @@ open import stlcl.definition
 open import stlcl.normalforms
 open import stlcl.simple.model
 
-vappend : ∀ {Δ σ} (XS : Δ ⊩ `list σ) (YS : Δ ⊩ `list σ) → Δ ⊩ `list σ
-vappend `[] YS = YS
-vappend {Δ} {σ} (HD `∷ XS) YS = HD `∷ vappend {Δ} {σ} XS YS
-vappend {Δ} {σ} (mappend F xs YS) ZS = mappend F xs (vappend {Δ} {σ} YS ZS)
+vappend : ∀ {Δ} σ (XS : Δ ⊩ `list σ) (YS : Δ ⊩ `list σ) → Δ ⊩ `list σ
+vappend σ `[] YS = YS
+vappend σ (HD `∷ XS) YS = HD `∷ vappend σ XS YS
+vappend σ (mappend F xs YS) ZS = mappend F xs (vappend σ YS ZS)
 
-vmap : ∀ {Δ σ τ} (F : Δ ⊩ σ `→ τ) (XS : Δ ⊩ `list σ) → Δ ⊩ `list τ
-vmap F `[] = `[]
-vmap {Δ} {σ} {τ} F (HD `∷ TL) = F (same _) HD `∷ vmap {Δ} {σ} {τ} F TL
-vmap {Δ} {σ} {τ} F (mappend G xs YS) =
-  mappend (λ {Ε} inc t → F inc (G inc t)) xs (vmap {Δ} {σ} {τ} F YS)
+vmap : ∀ {Δ} σ τ (F : Δ ⊩ σ `→ τ) (XS : Δ ⊩ `list σ) → Δ ⊩ `list τ
+vmap σ τ F `[] = `[]
+vmap σ τ F (HD `∷ TL) = F (same _) HD `∷ vmap σ τ F TL
+vmap σ τ F (mappend G xs YS) = mappend (λ {Ε} inc t → F inc (G inc t)) xs (vmap σ τ F YS)
 
-vfold : ∀ {Δ σ τ} (C : Δ ⊩ σ `→ τ `→ τ) (N : Δ ⊩ τ) (XS : Δ ⊩ `list σ) → Δ ⊩ τ
-vfold C N `[] = N
-vfold {Δ} {σ} {τ} C N (HD `∷ TL) = C (same _) HD (same _) (vfold {Δ} {σ} {τ} C N TL)
-vfold {Δ} {σ} {τ} C N (mappend F xs YS) =
+vfold : ∀ {Δ} σ τ (C : Δ ⊩ σ `→ τ `→ τ) (N : Δ ⊩ τ) (XS : Δ ⊩ `list σ) → Δ ⊩ τ
+vfold σ τ C N `[] = N
+vfold σ τ C N (HD `∷ TL) = C (same _) HD (same _) (vfold σ τ C N TL)
+vfold {Δ} σ τ C N (mappend F xs YS) =
   ↓[ τ ] `fold
     (`λ (`λ (↑[ τ ] C (step (step (same Δ))) (F (step (step (same _))) (`v (there here!)))
                       (same _) (↓[ τ ] `v here!))))
-    (↑[ _ ] vfold {Δ} {σ} {τ} C N YS) xs
+    (↑[ _ ] vfold σ τ C N YS) xs
 
 lookup : ∀ Γ {Δ σ} (pr : σ ∈ Γ) (R : Δ ⊩ε Γ) → Δ ⊩ σ
 lookup ε () vs
@@ -45,9 +44,13 @@ eval (`π₁ t) vs = proj₁ (eval t vs)
 eval (`π₂ t) vs = proj₂ (eval t vs)
 eval `[] vs = `[]
 eval (hd `∷ tl) vs = eval hd vs `∷ eval tl vs
-eval {Γ} {`list σ} {Δ} (xs `++ ys) vs = vappend {Δ} {σ} (eval xs vs) (eval ys vs)
-eval {Γ} {`list τ} {Δ} (`map {σ} f xs) vs = vmap {Δ} {σ} {τ} (eval f vs) (eval xs vs)
-eval {Γ} {τ} {Δ} (`fold {σ} c n xs) vs = vfold {Δ} {σ} {τ} (eval c vs) (eval n vs) (eval xs vs)
+eval {Γ} {`list σ} {Δ} (xs `++ ys) vs = vappend σ (eval xs vs) (eval ys vs)
+eval {Γ} {`list τ} {Δ} (`map {σ} f xs) vs = vmap σ τ (eval f vs) (eval xs vs)
+eval {Γ} {τ} (`fold {σ} c n xs) vs = vfold σ τ (eval c vs) (eval n vs) (eval xs vs)
+
+εeval : ∀ Γ {Δ Ε} (ρ : Δ ⊢ε Γ) (vs : Ε ⊩ε Δ) → Ε ⊩ε Γ
+εeval ε ρ vs = ρ
+εeval (Γ ∙ σ) (ρ , r) vs = εeval Γ ρ vs , eval r vs
 
 norm : ∀ {Γ σ} (t : Γ ⊢ σ) → Γ ⊢ σ
 norm {Γ} {σ} t = back-nf (↑[ σ ] eval t (⊩ε-refl Γ))

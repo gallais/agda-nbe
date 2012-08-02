@@ -260,12 +260,18 @@ subst-weaken inc (`fold c n xs) ρ =
 ⊢ε²-weaken ε pr ρ₁ ρ₂ = refl
 ⊢ε²-weaken (Γ ∙ σ) pr (ρ₁ , r₁) ρ₂ = cong₂ _,_ (⊢ε²-weaken Γ pr ρ₁ ρ₂) (weaken-subst pr r₁ ρ₂)
 
-⊢ε²-step : ∀ {Δ Ε σ} Γ (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) (s : Ε ⊢ σ) →
+
+⊢ε²-step : ∀ {Δ Ε σ} Γ (inc : Δ ⊆ Ε) (ρ₁ : Δ ⊢ε Γ) {Φ} (ρ₂ : Φ ⊢ε Ε) (s : Φ ⊢ σ) →
+           ⊢ε² Γ (⊢ε-weaken Γ (step inc) ρ₁) (ρ₂ , s) ≡ ⊢ε² Γ (⊢ε-weaken Γ inc ρ₁) ρ₂
+⊢ε²-step ε inc ρ₁ ρ₂ s = refl
+⊢ε²-step {Δ} (Γ ∙ σ) inc (ρ₁ , r₁) ρ₂ s =
+  cong₂ _,_ (⊢ε²-step Γ inc ρ₁ ρ₂ s)
+  (trans (subst-weaken (step inc) r₁ (ρ₂ , s)) (sym (subst-weaken inc r₁ ρ₂)))
+
+⊢ε²-step-same : ∀ {Δ Ε σ} Γ (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) (s : Ε ⊢ σ) →
            ⊢ε² Γ (⊢ε-weaken Γ (step (same Δ)) ρ₁) (ρ₂ , s) ≡ ⊢ε² Γ ρ₁ ρ₂
-⊢ε²-step ε ρ₁ ρ₂ s = refl
-⊢ε²-step {Δ} (Γ ∙ σ) (ρ₁ , r₁) ρ₂ s =
-  cong₂ _,_ (⊢ε²-step Γ ρ₁ ρ₂ s) (trans (subst-weaken (step (same _)) r₁ (ρ₂ , s))
-  (cong (subst r₁) (purge-refl Δ ρ₂)))
+⊢ε²-step-same Γ ρ₁ ρ₂ s =
+  trans (⊢ε²-step Γ (same _) ρ₁ ρ₂ s) (cong (λ ρ → ⊢ε² Γ ρ ρ₂) (⊢ε-weaken-refl Γ ρ₁))
 
 {- substitutions fusion -}
 
@@ -279,7 +285,7 @@ subst² : ∀ {Γ Δ Ε σ} (t : Γ ⊢ σ) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε �
 subst² (`v pr) ρ₁ ρ₂ = get-⊢ε² pr ρ₁ ρ₂
 subst² {Γ} {Δ} {Ε} (`λ t) ρ₁ ρ₂ =
   cong `λ (trans (subst² t _ _) (cong (λ ρ → subst t (ρ , `v here!))
-  (trans (⊢ε²-step Γ ρ₁ _ (`v here!)) (sym (⊢ε²-weaken Γ _ ρ₁ ρ₂)))))
+  (trans (⊢ε²-step-same Γ ρ₁ _ (`v here!)) (sym (⊢ε²-weaken Γ _ ρ₁ ρ₂)))))
 subst² (f `$ x) ρ₁ ρ₂ = cong₂ _`$_ (subst² f ρ₁ ρ₂) (subst² x ρ₁ ρ₂)
 subst² `⟨⟩ ρ₁ ρ₂ = refl
 subst² (a `, b) ρ₁ ρ₂ = cong₂ _`,_ (subst² a ρ₁ ρ₂) (subst² b ρ₁ ρ₂)

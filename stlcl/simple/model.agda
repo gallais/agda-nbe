@@ -63,3 +63,29 @@ _⊩ε_ : ∀ (Δ Γ : Con ty) → Set
 ⊩ε-refl : (Γ : Con ty) → Γ ⊩ε Γ
 ⊩ε-refl ε = tt
 ⊩ε-refl (Γ ∙ σ) = ⊩ε-weaken Γ (step (same _)) (⊩ε-refl Γ) , ↓[ σ ] `v here!
+
+⊩ε-purge : ∀ {Γ Δ Ε} (inc : Γ ⊆ Δ) (R : Ε ⊩ε Δ) → Ε ⊩ε Γ
+⊩ε-purge base R = tt
+⊩ε-purge (step inc) (R , _) = ⊩ε-purge inc R
+⊩ε-purge (pop! inc) (R , r) = ⊩ε-purge inc R , r
+
+abstract
+
+  ⊩ε-purge-refl : ∀ Γ {Δ} (R : Δ ⊩ε Γ) → ⊩ε-purge (same Γ) R ≡ R
+  ⊩ε-purge-refl ε R = refl
+  ⊩ε-purge-refl (Γ ∙ σ) (R , r) rewrite ⊩ε-purge-refl Γ R = refl
+
+  ⊩ε-purge² : ∀ {Γ Δ} (inc : Γ ⊆ Δ) {Ε} (inc' : Δ ⊆ Ε) {Φ} (R : Φ ⊩ε Ε) →
+    ⊩ε-purge inc (⊩ε-purge inc' R) ≡ ⊩ε-purge (⊆-trans inc inc') R
+  ⊩ε-purge² base base R = refl
+  ⊩ε-purge² base (step inc) (R , _) = ⊩ε-purge² base inc R
+  ⊩ε-purge² (step inc) (step inc') (R , _) = ⊩ε-purge² (step inc) inc' R
+  ⊩ε-purge² (step inc) (pop! inc') (R , _) = ⊩ε-purge² inc inc' R
+  ⊩ε-purge² (pop! inc) (step inc') (R , _) = ⊩ε-purge² (pop! inc) inc' R
+  ⊩ε-purge² (pop! inc) (pop! inc') (R , r) rewrite ⊩ε-purge² inc inc' R = refl
+
+  ⊩ε-purge-weaken : ∀ {Γ Δ} (inc : Γ ⊆ Δ) {Ε Φ} (inc' : Ε ⊆ Φ) (R : Ε ⊩ε Δ) →
+    ⊩ε-purge inc (⊩ε-weaken Δ inc' R) ≡ ⊩ε-weaken Γ inc' (⊩ε-purge inc R)
+  ⊩ε-purge-weaken base inc' R = refl
+  ⊩ε-purge-weaken (step inc) inc' (R , _) = ⊩ε-purge-weaken inc inc' R
+  ⊩ε-purge-weaken (pop! inc) inc' (R , r) rewrite ⊩ε-purge-weaken inc inc' R = refl

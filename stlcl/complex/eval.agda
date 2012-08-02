@@ -63,7 +63,7 @@ eval {Γ} (`λ t) {ρ} vs =
   λ {Ε} inc {s} S {ts} r → ⊩-↝⋆ _ (▹⋆-trans r (step `βλ (≡-step (trans
   (subst-weaken (pop! inc) (subst t (_ , `v here!)) (⊢ε-refl Ε , s)) (trans
   (subst² t _ (purge inc (⊢ε-refl Ε) , s)) (cong (λ ρ → subst t (ρ , s))
-  (trans (⊢ε²-step Γ _ _ s) (trans (cong (⊢ε² Γ ρ) (purge-⊢ε-refl inc))
+  (trans (⊢ε²-step-same Γ _ _ s) (trans (cong (⊢ε² Γ ρ) (purge-⊢ε-refl inc))
   (trans (sym (⊢ε²-weaken Γ inc _ _)) (cong (⊢ε-weaken Γ inc) (⊢ε²-refl Γ ρ)))))))) refl)))
   (eval t (⊩ε-weaken Γ inc vs , S))
 eval (f `$ x) {ρ} vs =

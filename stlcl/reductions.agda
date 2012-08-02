@@ -43,7 +43,7 @@ g `∘ f = `λ (⊢-weaken (step (same _)) g `$ (⊢-weaken (step (same _)) f `$
 
 {- small step reduction relation -}
 
-infix 5 _⊢_∋_↝_ _⊢_∋_↝⋆_
+infix 5 _⊢_∋_↝_ _⊢_∋_↝⋆_ _⊢_∋_≅_
 
 data _⊢_∋_↝_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
 -- structural rules
@@ -135,3 +135,33 @@ _⊢_∋_↝⋆_ : ∀ (Γ : Con ty) (τ : ty) (s t : Γ ⊢ τ) → Set
 ↝⋆-weaken : ∀ {Γ Δ σ s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ↝⋆ t) →
             Δ ⊢ σ ∋ ⊢-weaken inc s ↝⋆ ⊢-weaken inc t
 ↝⋆-weaken inc r = ▹⋆-cong (↝-weaken inc) r
+
+_⊢_∋_≅_ : ∀ (Γ : Con ty) (τ : ty) (s t : Γ ⊢ τ) → Set
+Γ ⊢ σ ∋ s ≅ t = s ≡[ _⊢_∋_↝_ Γ σ ]⋆ t
+
+≅-weaken : ∀ {Γ Δ σ s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ≅ t) →
+            Δ ⊢ σ ∋ ⊢-weaken inc s ≅ ⊢-weaken inc t
+≅-weaken inc r = ≡⋆-cong (↝-weaken inc) r
+
+{- notations for equational reasoning -}
+
+infix  3 _⊢_∋_Qed
+infixr 2 _⊢_∋_↝⋆⟨_⟩_ _⊢_∋_↝⟨_⟩_ _⊢_∋_≡⟨_⟩_
+infix  1 Proof[_⊢_]_
+
+Proof[_⊢_]_ : ∀ Γ σ {s t : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝⋆ t) → Γ ⊢ σ ∋ s ↝⋆ t
+Proof[ Γ ⊢ σ ] eq = eq
+
+_⊢_∋_≡⟨_⟩_ : ∀ Γ σ s {t u : Γ ⊢ σ} (eq : s ≡ t) (eq' : Γ ⊢ σ ∋ t ↝⋆ u) → Γ ⊢ σ ∋ s ↝⋆ u
+Γ ⊢ σ ∋ s ≡⟨ refl ⟩ eq = eq
+
+_⊢_∋_↝⋆⟨_⟩_ : ∀ Γ σ (s : Γ ⊢ σ) {t u : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝⋆ t)
+  (eq' : Γ ⊢ σ ∋ t ↝⋆ u) → Γ ⊢ σ ∋ s ↝⋆ u
+Γ ⊢ σ ∋ s ↝⋆⟨ eq ⟩ eq' = ▹⋆-trans eq eq'
+
+_⊢_∋_↝⟨_⟩_ : ∀ Γ σ (s : Γ ⊢ σ) {t u : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝ t)
+  (eq' : Γ ⊢ σ ∋ t ↝⋆ u) → Γ ⊢ σ ∋ s ↝⋆ u
+Γ ⊢ σ ∋ s ↝⟨ eq ⟩ eq' = step eq eq'
+
+_⊢_∋_Qed : ∀ Γ σ (s : Γ ⊢ σ) → Γ ⊢ σ ∋ s ↝⋆ s
+Γ ⊢ σ ∋ s Qed = refl
