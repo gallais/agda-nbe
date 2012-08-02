@@ -60,7 +60,7 @@ abstract
   ≣ε-refl (Γ ∙ σ) (r , R) = ≣ε-refl Γ R , ≣-refl σ r
 
   ≣-sym : ∀ σ {Γ} {s} {S : Γ ⊩τ σ [ s ]} {t} {T : Γ ⊩τ σ [ t ]} (eq : [ σ ] S ≣ T) → [ σ ] T ≣ S
-  ≣-sym ♭ refl = refl
+  ≣-sym ♭ {S = (a , ra)} {T = (.a , rb)} refl = refl
   ≣-sym (σ ▹ τ) eq = λ inc S Suni → ≣-sym τ (eq inc S Suni)
 
   ≣ε-sym : ∀ Γ {Δ} {γ} {G : Δ ⊩ε Γ [ γ ]} {ρ} {R : Δ ⊩ε Γ [ ρ ]} (eq : [ Γ ] G ≣ε R) → [ Γ ] R ≣ε G
@@ -69,7 +69,7 @@ abstract
 
   ≣-trans : ∀ σ {Γ} {s} {S : Γ ⊩τ σ [ s ]} {t} {T : Γ ⊩τ σ [ t ]} {u} {U : Γ ⊩τ σ [ u ]}
             (eqST : [ σ ] S ≣ T) (eqTU : [ σ ] T ≣ U) → [ σ ] S ≣ U
-  ≣-trans ♭ refl refl = refl
+  ≣-trans ♭ {S = a , ra} {T = .a  , rb} {U = .a , rc} refl refl = refl
   ≣-trans (σ ▹ τ) eqST eqTU = λ inc S Suni → ≣-trans τ (eqST inc S Suni) (eqTU inc S Suni)
 
   ≣ε-trans : ∀ Γ {Δ} {γ} {G : Δ ⊩ε Γ [ γ ]} {δ} {D : Δ ⊩ε Γ [ δ ]} {ρ} {R : Δ ⊩ε Γ [ ρ ]}
@@ -87,7 +87,7 @@ abstract
 
   ≣-weaken : ∀ {Γ Δ} σ {s t} {S : Γ ⊩τ σ [ s ]} {T : Γ ⊩τ σ [ t ]} (inc : Γ ⊆ Δ)
     (eq : [ σ ] S ≣ T) → [ σ ] ⊩τ-weaken s inc S ≣ ⊩τ-weaken t inc T
-  ≣-weaken ♭ inc refl = refl
+  ≣-weaken ♭ {S = a , ra} {T = .a , rb} inc refl = refl
   ≣-weaken (σ ▹ τ) {f} {g} inc eq =
     λ {Ε} inc' {s} S Suni →
     ≣-trans τ (≣-sym τ (≣-coerce τ (λ t → app t s) (sym (weaken² inc inc' f))))
@@ -243,7 +243,7 @@ mutual
   abstract
 
     ≣-≡nf : ∀ {Γ} σ {s t} {S : Γ ⊩τ σ [ s ]} {T : Γ ⊩τ σ [ t ]} (eq : [ σ ] S ≣ T) → ↑ S ≡ ↑ T
-    ≣-≡nf ♭ refl = refl
+    ≣-≡nf ♭ {S = a , ra} {T = .a  , rb} refl = refl
     ≣-≡nf (σ ▹ τ) eq =
       cong lam (≣-≡nf τ (eq (step (same _)) (↓ (var here!)) (Uni-ne σ (var here!))))
 
