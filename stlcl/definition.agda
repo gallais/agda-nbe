@@ -11,7 +11,7 @@ cong₃ f refl refl refl = refl
 
 open import tools.contexts
 
-infixr 10 _`→_ _`,_
+infixr 50 _`→_ _`×_
 infixl 10 _`$_
 infix 5 _⊢_ _⊢ε_
 
@@ -304,3 +304,15 @@ subst-pop {Δ} t s inc =
   (cong (λ pr → subst t (purge pr (⊢ε-refl Δ))) (sym (⊆-same-l inc)))))
   (sym (subst-weaken (⊆-trans (step (same _)) (pop! inc)) t (⊢ε-refl Δ , s))))
   (cong (λ t → subst t (⊢ε-refl Δ , s)) (sym (⊢-weaken² (step (same _)) (pop! inc) t)))
+
+
+{- important notions now definable -}
+
+η-expand : ∀ {Γ σ τ} (t : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ τ
+η-expand t = `λ (⊢-weaken (step (same _)) t `$ `v here!)
+
+β-reduce : ∀ {Γ σ τ} (t : Γ ∙ σ ⊢ τ) (s : Γ ⊢ σ) → Γ ⊢ τ
+β-reduce {Γ} t s = subst t (⊢ε-refl Γ , s)
+
+_`∘_ : ∀ {Γ σ τ υ} (g : Γ ⊢ τ `→ υ) (f : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ υ
+g `∘ f = `λ (⊢-weaken (step (same _)) g `$ (⊢-weaken (step (same _)) f `$ `v here!))

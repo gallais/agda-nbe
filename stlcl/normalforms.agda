@@ -5,6 +5,63 @@ open import Relation.Binary.PropositionalEquality
 open import tools.contexts
 open import stlcl.definition
 
+infix 5 _⊢whne_ _⊢whnf_
+
+mutual
+
+  data _⊢whne_ (Γ : Con ty) : ty → Set where
+    `v    : ∀ {τ} (pr : τ ∈ Γ) → Γ ⊢whne τ
+    _`$_  : ∀ {σ τ} (f : Γ ⊢whne σ `→ τ) (x :  Γ ⊢ σ) → Γ ⊢whne τ
+    `π₁   : ∀ {σ τ} (p : Γ ⊢whne τ `× σ) → Γ ⊢whne τ
+    `π₂   : ∀ {σ τ} (p : Γ ⊢whne σ `× τ) → Γ ⊢whne τ
+    `map  : ∀ {σ τ} (f : Γ ⊢ σ `→ τ) (xs : Γ ⊢whne `list σ) → Γ ⊢whne `list τ
+    `fold : ∀ {σ τ} (c : Γ ⊢ σ `→ τ `→ τ) (n : Γ ⊢ τ) (xs : Γ ⊢whne `list σ) → Γ ⊢whne τ
+    _`++_ : ∀ {σ} (xs : Γ ⊢whne `list σ) (ys : Γ ⊢ `list σ) → Γ ⊢whne `list σ
+
+  data _⊢whnf_ (Γ : Con ty) : ty → Set where
+    `↑ : ∀ {τ} (t : Γ ⊢whne τ) → Γ ⊢whnf τ
+    `λ : ∀ {σ τ} (t : Γ ∙ σ ⊢ τ) → Γ ⊢whnf σ `→ τ
+    `⟨⟩ : Γ ⊢whnf `1
+    _`,_ : ∀ {σ τ} (a : Γ ⊢ σ) (b : Γ ⊢ τ) → Γ ⊢whnf σ `× τ
+    `[] : ∀ {σ} → Γ ⊢whnf `list σ
+    _`∷_ : ∀ {σ} (hd : Γ ⊢ σ) (tl : Γ ⊢ `list σ) → Γ ⊢whnf `list σ
+
+mutual
+
+  back-whne : ∀ {Γ σ} (t : Γ ⊢whne σ) → Γ ⊢ σ
+  back-whne (`v pr) = `v pr
+  back-whne (f `$ x) = back-whne f `$ x
+  back-whne (`π₁ t) = `π₁ (back-whne t)
+  back-whne (`π₂ t) = `π₂ (back-whne t)
+  back-whne (`map f xs) = `map f (back-whne xs)
+  back-whne (`fold c n xs) = `fold c n (back-whne xs)
+  back-whne (xs `++ ys) = back-whne xs `++ ys
+
+  back-whnf : ∀ {Γ σ} (t : Γ ⊢whnf σ) → Γ ⊢ σ
+  back-whnf (`↑ t) = back-whne t
+  back-whnf (`λ t) = `λ t
+  back-whnf `⟨⟩ = `⟨⟩
+  back-whnf (a `, b) = a `, b
+  back-whnf `[] = `[]
+  back-whnf (hd `∷ tl) = hd `∷ tl
+
+weaken-whne : ∀ {Γ Δ σ} (inc : Γ ⊆ Δ) (t : Γ ⊢whne σ) → Δ ⊢whne σ
+weaken-whne inc (`v pr) = `v (inc-in inc pr)
+weaken-whne inc (f `$ x) = weaken-whne inc f `$ ⊢-weaken inc x
+weaken-whne inc (`π₁ t) = `π₁ (weaken-whne inc t)
+weaken-whne inc (`π₂ t) = `π₂ (weaken-whne inc t)
+weaken-whne inc (`map f xs) = `map (⊢-weaken inc f) (weaken-whne inc xs)
+weaken-whne inc (`fold c n xs) = `fold (⊢-weaken inc c) (⊢-weaken inc n) (weaken-whne inc xs)
+weaken-whne inc (xs `++ ys) = weaken-whne inc xs `++ ⊢-weaken inc ys
+
+weaken-whnf : ∀ {Γ Δ σ} (inc : Γ ⊆ Δ) (t : Γ ⊢whnf σ) → Δ ⊢whnf σ
+weaken-whnf inc (`↑ t) = `↑ (weaken-whne inc t)
+weaken-whnf inc (`λ t) = `λ (⊢-weaken (pop! inc) t)
+weaken-whnf inc `⟨⟩ = `⟨⟩
+weaken-whnf inc (a `, b) = ⊢-weaken inc a `, ⊢-weaken inc b
+weaken-whnf inc `[] = `[]
+weaken-whnf inc (hd `∷ tl) = ⊢-weaken inc hd `∷ ⊢-weaken inc tl
+
 infix 5 _⊢ne_ _⊢nf_
 
 mutual
@@ -41,6 +98,23 @@ mutual
   back-nf `[] = `[]
   back-nf (hd `∷ tl) = back-nf hd `∷ back-nf tl
   back-nf (mappend f xs ys) = `map (back-nf f) (back-ne xs) `++ back-nf ys
+
+mutual
+
+  nf-whnf : ∀ {Γ σ} (t : Γ ⊢nf σ) → Γ ⊢whnf σ
+  nf-whnf (`λ t) = `λ (back-nf t)
+  nf-whnf `⟨⟩ = `⟨⟩
+  nf-whnf (a `, b) = back-nf a `, back-nf b
+  nf-whnf `[] = `[]
+  nf-whnf (hd `∷ tl) = back-nf hd `∷ back-nf tl
+  nf-whnf (mappend f xs ys) = `↑ (`map (back-nf f) (ne-whne xs) `++ back-nf ys)
+
+  ne-whne : ∀ {Γ σ} (t : Γ ⊢ne σ) → Γ ⊢whne σ
+  ne-whne (`v pr) = `v pr
+  ne-whne (t `$ u) = (ne-whne t) `$ (back-nf u)
+  ne-whne (`π₁ t) = `π₁ (ne-whne t)
+  ne-whne (`π₂ t) = `π₂ (ne-whne t)
+  ne-whne (`fold c n t) = `fold (back-nf c) (back-nf n) (ne-whne t)
 
 mutual
 

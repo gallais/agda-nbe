@@ -7,17 +7,6 @@ open import tools.contexts
 open import tools.closures
 open import stlcl.definition
 
-{- handy notions to write down the reduction rules -}
-
-η-expand : ∀ {Γ σ τ} (t : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ τ
-η-expand t = `λ (⊢-weaken (step (same _)) t `$ `v here!)
-
-β-reduce : ∀ {Γ σ τ} (t : Γ ∙ σ ⊢ τ) (s : Γ ⊢ σ) → Γ ⊢ τ
-β-reduce {Γ} t s = subst t (⊢ε-refl Γ , s)
-
-_`∘_ : ∀ {Γ σ τ υ} (g : Γ ⊢ τ `→ υ) (f : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ υ
-g `∘ f = `λ (⊢-weaken (step (same _)) g `$ (⊢-weaken (step (same _)) f `$ `v here!))
-
 {- and their compatibility with weakening -}
 
 η-weaken : ∀ {Γ Δ σ τ} (pr : Γ ⊆ Δ) (t : Γ ⊢ σ `→ τ) →
