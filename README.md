@@ -3,10 +3,11 @@ agda-nbe
 
 # Content
 
-Formalization in agda of normalization by evaluation for
-different lambda calculi. We always try to bake the model
-in such a way that soundness of the procedure comes for
-free.
+This repository explores type-directed partial evaluation of
+various lambda-calculi equipped with rich reduction relations.
+The development axis involve: baking soundness directly in the
+model definition, separating normalization and standardization
+or performing only weak-head normalization.
 
 The repository is organized in this way:
 
@@ -14,23 +15,25 @@ The repository is organized in this way:
 
   Generic tools to formalize calculi and their reduction
   rules. Currently contains a formalization of transitive
-  reflexive (symmetric) closures and contexts.
+  reflexive (symmetric) closures and (non dependent) contexts.
 
 * __stlc/__
 
-  Simply typed lambda calculus.
+  Simply typed lambda calculus: always a good start when trying
+  out new ideas.
 
 * __stlcl/__
 
   Simply typed lambda calculus with lists, products and a
   unit type and a reduction relation having special rules
-  to deal with map, fold, append and their combinations.
+  to deal with map, fold, append and their fusion.
 
 * __stlci/__
 
   Simply typed lambda calculus with a universe of finitely
   branching inductive skeleton and their eliminators /
   recursors.
+
 
 # Development versions
 
