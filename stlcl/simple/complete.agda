@@ -15,7 +15,7 @@ open import stlcl.simple.equality
 
 abstract
 
-  Uni-comp : ∀ {Γ} σ τ υ {G : Γ ⊩ τ `→ υ} (Guni : Uni[ τ `→ υ ] G)
+  Uni-comp : ∀ {n Γ} (σ τ υ : ty n) {G : Γ ⊩ τ `→ υ} (Guni : Uni[ τ `→ υ ] G)
     {F : Γ ⊩ σ `→ τ} (Funi : Uni[ σ `→ τ ] F) → Uni[ σ `→ υ ] (λ inc S → G inc (F inc S))
   Uni-comp σ τ υ {G} (g₁ , g₂ , g₃) {F} (f₁ , f₂ , f₃) =
     (λ inc S Suni → g₁ inc (F inc S) (f₁ inc S Suni)) ,
@@ -32,9 +32,9 @@ abstract
 
 abstract
 
-  eval-comp : ∀ {Γ} σ τ υ (f : Γ ⊢ σ `→ τ) (g : Γ ⊢ τ `→ υ) {Δ} {R : Δ ⊩ε Γ}
+  eval-comp : ∀ {n Γ} (σ τ υ : ty n) (f : Γ ⊢ σ `→ τ) (g : Γ ⊢ τ `→ υ) {Δ} {R : Δ ⊩ε Γ}
     (Runi : Uni[ Γ ]ε R) → [ σ `→ υ ] eval (g `∘ f) R ≣ λ inc t → eval g R inc (eval f R inc t)
-  eval-comp {Γ} σ τ υ f g {Δ} {R} Runi {Ε} inc S Suni =
+  eval-comp {Γ = Γ} σ τ υ f g {Δ} {R} Runi {Ε} inc S Suni =
     let Runi' = Uniε-weaken Γ inc Runi
         Funi = Uni-eval f Runi' in
     Begin[ Ε ⊩ υ ]
@@ -63,7 +63,7 @@ mutual
 
   abstract
 
-    Unilist-≣ : ∀ {Γ} σ {S T : Γ ⊩ `list σ} (eq : [ `list σ ] S ≣ T)
+    Unilist-≣ : ∀ {n Γ} (σ : ty n) {S T : Γ ⊩ `list σ} (eq : [ `list σ ] S ≣ T)
       (Suni : Uni[ `list σ ] S) → Uni[ `list σ ] T
     Unilist-≣ σ `[] XSuni = XSuni
     Unilist-≣ σ (hd `∷ tl) (HDuni , TLuni) = Uni-≣ σ hd HDuni , Unilist-≣ σ tl TLuni
@@ -81,10 +81,11 @@ mutual
       Qed)) ,
       Unilist-≣ σ YS YSuni
 
-    Uni-≣ : ∀ {Γ} σ {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) (Suni : Uni[ σ ] S) → Uni[ σ ] T
+    Uni-≣ : ∀ {n Γ} (σ : ty n) {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) (Suni : Uni[ σ ] S) → Uni[ σ ] T
     Uni-≣ `1 eq Suni = Suni
+    Uni-≣ (`b k) refl Suni = Suni
     Uni-≣ (σ `× τ) (Aeq , Beq) (Auni , Buni) = Uni-≣ σ Aeq Auni , Uni-≣ τ Beq Buni
-    Uni-≣ {Γ} (σ `→ τ) {F} {G} eq (h₁ , h₂ , h₃) =
+    Uni-≣ {Γ = Γ} (σ `→ τ) {F} {G} eq (h₁ , h₂ , h₃) =
       (λ inc S Suni → Uni-≣ τ (eq inc S Suni) (h₁ inc S Suni)) ,
       (λ {Δ} inc {S₁} {S₂} Suni₁ Suni₂ eqS₁S₂ →
       Begin[ Δ ⊩ τ ]
@@ -110,38 +111,38 @@ mutual
 
 abstract
 
-  vmap-id : ∀ {Γ} σ (XS : Γ ⊩ `list σ) → [ `list σ ] XS ≣ vmap σ σ (λ inc S → S) XS
+  vmap-id : ∀ {n Γ} (σ : ty n) (XS : Γ ⊩ `list σ) → [ `list σ ] XS ≣ vmap σ σ (λ inc S → S) XS
   vmap-id σ `[] = ≣-refl (`list σ) `[]
   vmap-id σ (HD `∷ TL) = ≣-refl σ HD `∷ vmap-id σ TL
   vmap-id σ (mappend F xs YS) = mappend (λ inc t → ≣-refl σ (F inc t)) refl (vmap-id σ YS)
 
-  vmap-comp : ∀ {Γ} σ τ υ (G : Γ ⊩ τ `→ υ) (F : Γ ⊩ σ `→ τ) (XS : Γ ⊩ `list σ) →
+  vmap-comp : ∀ {n Γ} (σ τ υ : ty n) (G : Γ ⊩ τ `→ υ) (F : Γ ⊩ σ `→ τ) (XS : Γ ⊩ `list σ) →
     [ `list υ ] vmap τ υ G (vmap σ τ F XS) ≣ vmap σ υ (λ inc t → G inc (F inc t)) XS
   vmap-comp σ τ υ G F `[] = ≣-refl (`list υ) `[]
   vmap-comp σ τ υ G F (HD `∷ TL) = ≣-refl υ _ `∷ vmap-comp σ τ υ G F TL
   vmap-comp σ τ υ G F (mappend H xs YS) =
     mappend (λ inc t → ≣-refl υ _) refl (vmap-comp σ τ υ G F YS)
 
-  vmap-append : ∀ {Γ} σ τ (F : Γ ⊩ σ `→ τ) (XS YS : Γ ⊩ `list σ) →
+  vmap-append : ∀ {n Γ} (σ τ : ty n) (F : Γ ⊩ σ `→ τ) (XS YS : Γ ⊩ `list σ) →
     [ `list τ ] vmap σ τ F (vappend σ XS YS) ≣ vappend τ (vmap σ τ F XS) (vmap σ τ F YS)
   vmap-append σ τ F `[] YS = ≣-refl (`list τ) _
   vmap-append σ τ F (HD `∷ TL) YS = ≣-refl τ _ `∷ vmap-append σ τ F TL YS
   vmap-append σ τ F (mappend G xs TL) YS =
     mappend (λ inc t → ≣-refl τ _) refl (vmap-append σ τ F TL YS)
 
-  vappend-nil : ∀ {Γ} σ (XS : Γ ⊩ `list σ) → [ `list σ ] XS ≣ vappend σ XS `[]
+  vappend-nil : ∀ {n Γ} (σ : ty n) (XS : Γ ⊩ `list σ) → [ `list σ ] XS ≣ vappend σ XS `[]
   vappend-nil σ `[] = ≣-refl (`list σ) `[]
   vappend-nil σ (HD `∷ TL) = ≣-refl σ HD `∷ vappend-nil σ TL
   vappend-nil σ (mappend F xs YS) = mappend (λ inc t → ≣-refl σ (F inc t)) refl (vappend-nil σ YS)
 
-  vappend-assoc : ∀ {Γ} σ (XS YS ZS : Γ ⊩ `list σ) →
+  vappend-assoc : ∀ {n Γ} (σ : ty n) (XS YS ZS : Γ ⊩ `list σ) →
     [ `list σ ] vappend σ (vappend σ XS YS) ZS ≣ vappend σ XS (vappend σ YS ZS)
   vappend-assoc σ `[] YS ZS = ≣-refl (`list σ) (vappend σ YS ZS)
   vappend-assoc σ (HD `∷ TL) YS ZS = ≣-refl σ HD `∷ vappend-assoc σ TL YS ZS
   vappend-assoc σ (mappend F xs TL) YS ZS =
     mappend (λ inc t → ≣-refl σ (F inc t)) refl (vappend-assoc σ TL YS ZS)
 
-  vfold-map : ∀ {Γ} σ τ υ {C : Γ ⊩ τ `→ υ `→ υ} (Cuni : Uni[ τ `→ υ `→ υ ] C) 
+  vfold-map : ∀ {n Γ} (σ τ υ : ty n) {C : Γ ⊩ τ `→ υ `→ υ} (Cuni : Uni[ τ `→ υ `→ υ ] C) 
     {N : Γ ⊩ υ} (Nuni : Uni[ υ ] N) {F : Γ ⊩ σ `→ τ} (Funi : Uni[ σ `→ τ ] F)
     (XS : Γ ⊩ `list σ) (XSuni : Uni[ `list σ ] XS) →
     [ υ ] vfold τ υ C N (vmap σ τ F XS) ≣ vfold σ υ (λ inc hd → C inc (F inc hd)) N XS
@@ -151,7 +152,7 @@ abstract
     (Uni-vfold τ υ (h₁ , h₂ , h₃) Nuni (vmap σ τ _ TL) (Uni-vmap σ Funi TL TLuni))
     (Uni-vfold σ υ (Uni-comp σ τ (υ `→ υ) (h₁ , h₂ , h₃) Funi) Nuni TL TLuni)
     (vfold-map σ τ υ (h₁ , h₂ , h₃) Nuni Funi TL TLuni)
-  vfold-map {Γ} σ τ υ {C} Cuni {N} Nuni {F} Funi (mappend G xs YS) (Guni , YSuni) =
+  vfold-map {Γ = Γ} σ τ υ {C} Cuni {N} Nuni {F} Funi (mappend G xs YS) (Guni , YSuni) =
     Begin[ Γ ⊩ υ ]
       Γ ⊩ υ ∋ _
       ≡⟨ cong (λ n → ↓[ υ ] `fold (`λ (`λ (↑[ υ ] C (step (step (same Γ)))
@@ -161,7 +162,7 @@ abstract
       Γ ⊩ υ ∋ _
     Qed
 
-  vfold-append : ∀ {Γ} σ τ {C : Γ ⊩ σ `→ τ `→ τ} (Cuni : Uni[ σ `→ τ `→ τ ] C)
+  vfold-append : ∀ {n Γ} (σ τ : ty n) {C : Γ ⊩ σ `→ τ `→ τ} (Cuni : Uni[ σ `→ τ `→ τ ] C)
     {N : Γ ⊩ τ} (Nuni : Uni[ τ ] N) (XS : Γ ⊩ `list σ) (XSuni : Uni[ `list σ ] XS)
     {YS : Γ ⊩ `list σ} (YSuni : Uni[ `list σ ] YS) →
     [ τ ] vfold σ τ C N (vappend σ XS YS) ≣ vfold σ τ C (vfold σ τ C N YS) XS
@@ -171,7 +172,7 @@ abstract
     (Uni-vfold σ τ (h₁ , h₂ , h₃) Nuni (vappend σ TL _) (Uni-vappend σ TL TLuni YSuni))
     (Uni-vfold σ τ (h₁ , h₂ , h₃) (Uni-vfold σ τ (h₁ , h₂ , h₃) Nuni YS YSuni) TL TLuni)
     (vfold-append σ τ (h₁ , h₂ , h₃) Nuni TL TLuni YSuni)
-  vfold-append {Γ} σ τ {C} Cuni {N} Nuni (mappend F xs TL) (Funi , TLuni) {YS} YSuni =
+  vfold-append {Γ = Γ} σ τ {C} Cuni {N} Nuni (mappend F xs TL) (Funi , TLuni) {YS} YSuni =
     Begin[ Γ ⊩ τ ]
       Γ ⊩ τ ∋ _
       ≡⟨ cong (λ fld → ↓[ τ ] `fold (`λ (`λ (↑[ τ ] C (step (step (same Γ)))
@@ -182,15 +183,15 @@ abstract
 
 abstract
 
-  eval-get : ∀ {Γ σ} (pr : σ ∈ Γ) {Δ Ε} (γ : Δ ⊢ε Γ) (R : Ε ⊩ε Δ) →
+  eval-get : ∀ {n Γ} {σ : ty n} (pr : σ ∈ Γ) {Δ Ε} (γ : Δ ⊢ε Γ) (R : Ε ⊩ε Δ) →
     [ σ ] eval (get pr γ) R ≣ lookup Γ pr (εeval Γ γ R)
   eval-get {σ = σ} here! (_ , g) R = ≣-refl σ (eval g R)
   eval-get (there pr) (γ , _) R = eval-get pr γ R
 
-  eval-subst : ∀ {Γ σ} (t : Γ ⊢ σ) {Δ Ε} (γ : Δ ⊢ε Γ) {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) →
+  eval-subst : ∀ {n Γ} {σ : ty n} (t : Γ ⊢ σ) {Δ Ε} (γ : Δ ⊢ε Γ) {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) →
     [ σ ] eval (subst t γ) R ≣ eval t (εeval Γ γ R)
   eval-subst (`v pr) γ Runi = eval-get pr γ _
-  eval-subst {Γ} {σ `→ τ} (`λ t) {Δ} γ {R} Runi =
+  eval-subst {Γ = Γ} {σ `→ τ} (`λ t) {Δ} γ {R} Runi =
     λ {Φ} inc S Suni →
     let Runi' = Uniε-weaken Δ inc Runi in
     Begin[ Φ ⊩ τ ]
@@ -211,7 +212,7 @@ abstract
           , ≣-refl σ S) ⟩
       Φ ⊩ τ ∋ _
     Qed
-  eval-subst {Γ} {σ} (t `$ u) {Δ} {Ε} γ {R} Runi with Uni-eval (subst t γ) Runi
+  eval-subst {_} {Γ} {σ} (t `$ u) {Δ} {Ε} γ {R} Runi with Uni-eval (subst t γ) Runi
   ... | h₁ , h₂ , h₃ =
     let Uuni = Uni-eval u (Uniε-eval Γ γ Runi) in
     Begin[ Ε ⊩ σ ]
@@ -229,10 +230,10 @@ abstract
   eval-subst (hd `∷ tl) γ Runi = eval-subst hd γ Runi `∷ eval-subst tl γ Runi
   eval-subst {σ = `list σ} (xs `++ ys) γ Runi =
     ≣-vappend σ (eval-subst xs γ Runi) (eval-subst ys γ Runi)
-  eval-subst {Γ} (`map {σ} {τ} f xs) γ Runi =
+  eval-subst {Γ = Γ} (`map {σ} {τ} f xs) γ Runi =
     ≣-vmap σ τ (Uni-eval (subst f γ) Runi) (eval-subst f γ Runi)
     (Uni-eval (subst xs γ) Runi) (Uni-eval xs (Uniε-eval Γ γ Runi)) (eval-subst xs γ Runi)
-  eval-subst {Γ} (`fold {σ} {τ} c n xs) γ {R} Runi =
+  eval-subst {Γ = Γ} (`fold {σ} {τ} c n xs) γ {R} Runi =
     let Guni = Uniε-eval Γ γ Runi in
     ≣-vfold σ τ (Uni-eval (subst c γ) Runi) (Uni-eval c Guni) (eval-subst c γ Runi)
     (Uni-eval (subst n γ) Runi) (Uni-eval n Guni) (eval-subst n γ Runi)
@@ -240,9 +241,9 @@ abstract
 
 abstract
 
-  ≣-red : ∀ {Γ Δ} σ {s t} (r : Γ ⊢ σ ∋ s ↝ t) (R : Δ ⊩ε Γ) (Runi : Uni[ Γ ]ε R) →
+  ≣-red : ∀ {n Γ Δ} (σ : ty n) {s t} (r : Γ ⊢ σ ∋ s ↝ t) (R : Δ ⊩ε Γ) (Runi : Uni[ Γ ]ε R) →
     [ σ ] eval s R ≣ eval t R
-  ≣-red {Γ} .(σ `→ τ) (`λ {σ} {τ} r) R Runi =
+  ≣-red {Γ = Γ} .(σ `→ τ) (`λ {σ} {τ} r) R Runi =
     λ inc S Suni → ≣-red τ r _ (Uniε-weaken Γ inc Runi , Suni)
   ≣-red .τ (`$₁ {σ} {τ} {f} {g} {x} r) R Runi =
     ≣-red (σ `→ τ) r R Runi (same _) (eval x R) (Uni-eval x Runi)
@@ -279,7 +280,7 @@ abstract
         Nuni = Uni-eval n Runi in
     ≣-vfold σ τ Cuni Cuni (≣-refl (σ `→ τ `→ τ) (eval c R)) Nuni Nuni (≣-refl τ (eval n R))
     (Uni-eval xs₁ Runi) (Uni-eval xs₂ Runi) (≣-red (`list σ) r R Runi)
-  ≣-red {Γ} {Δ} .τ (`βλ {σ} {τ} {f} {x}) R Runi =
+  ≣-red {_} {Γ} {Δ} .τ (`βλ {σ} {τ} {f} {x}) R Runi =
     let Xuni = Uni-eval x Runi in
     Begin[ Δ ⊩ τ ]
       Δ ⊩ τ ∋ eval f (⊩ε-weaken Γ (same Δ) R , eval x R)
@@ -304,7 +305,7 @@ abstract
   ≣-red .(`list τ) (`βmap₂ {σ} {τ}) R Runi = ≣-refl (`list τ) _
   ≣-red σ `βfold₁ R Runi = ≣-refl σ _
   ≣-red σ `βfold₂ R Runi = ≣-refl σ _
-  ≣-red {Γ} {Δ} .(σ `→ τ) (`ηλ {σ} {τ} f) R Runi =
+  ≣-red {_} {Γ} {Δ} .(σ `→ τ) (`ηλ {σ} {τ} f) R Runi =
     λ {Ε} inc S Suni →
     let Runi' = Uniε-weaken Γ inc Runi in
     Begin[ Ε ⊩ τ ]
@@ -324,7 +325,8 @@ abstract
   ≣-red .(`list σ) (`ηmap₁ {σ} xs) R Runi = vmap-id σ (eval xs R)
   ≣-red .(`list τ) (`ηmap₂ {σ} {τ} {f} xs ys) R Runi =
     vmap-append σ τ (eval f R) (eval xs R) (eval ys R)
-  ≣-red {Γ} {Δ} .(`list υ) (`ηmap₃ {σ} {τ} {υ} g f xs) R Runi with Uni-eval g Runi | Uni-eval f Runi
+  ≣-red {_} {Γ} {Δ} .(`list υ) (`ηmap₃ {σ} {τ} {υ} g f xs) R Runi
+    with Uni-eval g Runi | Uni-eval f Runi
   ... | g₁ , g₂ , g₃ | f₁ , f₂ , f₃ =
     let XSuni = Uni-eval xs Runi in
     Begin[ Δ ⊩ `list υ ]
@@ -368,7 +370,7 @@ abstract
   ≣-red .τ (`ηfold₁ {σ} {τ} {c} {n} xs ys) R Runi =
     vfold-append σ τ (Uni-eval c Runi) (Uni-eval n Runi) (eval xs R)
     (Uni-eval xs Runi) (Uni-eval ys Runi)
-  ≣-red {Γ} {Δ} .υ (`ηfold₂ {τ} {υ} {σ} {n} c f xs) R Runi =
+  ≣-red {_} {Γ} {Δ} .υ (`ηfold₂ {τ} {υ} {σ} {n} c f xs) R Runi =
     let Cuni = Uni-eval c Runi
         Nuni = Uni-eval n Runi
         Funi = Uni-eval f Runi
@@ -393,11 +395,11 @@ abstract
 
 abstract
 
-  ≣-reds : ∀ {Γ} σ {s t} (r : Γ ⊢ σ ∋ s ≅ t) {Δ} {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) →
+  ≣-reds : ∀ {n Γ} (σ : ty n) {s t} (r : Γ ⊢ σ ∋ s ≅ t) {Δ} {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) →
     [ σ ] eval s R ≣ eval t R
   ≣-reds σ refl Runi = ≣-refl σ _
   ≣-reds σ (lstep p r) Runi = ≣-trans σ (≣-red σ p _ Runi) (≣-reds σ r Runi)
   ≣-reds σ (rstep p r) Runi = ≣-trans σ (≣-sym σ (≣-red σ p _ Runi)) (≣-reds σ r Runi)
 
-  completeness : ∀ {σ Γ s t} (r : Γ ⊢ σ ∋ s ≅ t) → norm s ≡ norm t
-  completeness {σ} {Γ} req = cong back-nf (≣≡nf σ (≣-reds σ req (Uni-⊩ε-refl Γ)))
+  completeness : ∀ {n} {σ : ty n} {Γ s t} (r : Γ ⊢ σ ∋ s ≅ t) → norm s ≡ norm t
+  completeness {_} {σ} {Γ} req = cong back-nf (≣≡nf σ (≣-reds σ req (Uni-⊩ε-refl Γ)))

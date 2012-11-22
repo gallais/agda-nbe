@@ -1,5 +1,7 @@
 module stlcl.definition where
 
+open import Data.Nat
+open import Data.Fin
 open import Data.Unit
 open import Data.Product
 open import Data.List
@@ -11,19 +13,21 @@ cong₃ f refl refl refl = refl
 
 open import tools.contexts
 
-infixr 50 _`→_ _`×_
+infixr 49 _`→_
+infixr 50 _`×_
 infixl 10 _`$_
 infix 5 _⊢_ _⊢ε_
 
-data ty : Set where
-  `1 : ty
-  _`×_ _`→_ : (σ τ : ty) → ty
-  `list_ : (σ : ty) → ty
+data ty (n : ℕ) : Set where
+  `b : Fin n → ty n
+  `1 : ty n
+  _`×_ _`→_ : (σ τ : ty n) → ty n
+  `list_ : (σ : ty n) → ty n
 
 {- Well-typed terms in context ;
    Well-typed environments in context -}
 
-data _⊢_ (Γ : Con ty) : ty → Set where
+data _⊢_ {n} (Γ : Con (ty n)) : ty n → Set where
 -- usual stlc
   `v : ∀ {σ} (pr : σ ∈ Γ) → Γ ⊢ σ
   `λ : ∀ {σ τ} (t : Γ ∙ σ ⊢ τ) → Γ ⊢ σ `→ τ
@@ -40,13 +44,13 @@ data _⊢_ (Γ : Con ty) : ty → Set where
   `map : ∀ {σ τ} (f : Γ ⊢ σ `→ τ) (xs : Γ ⊢ `list σ) → Γ ⊢ `list τ
   `fold : ∀ {σ τ} (c : Γ ⊢ σ `→ τ `→ τ) (n : Γ ⊢ τ) (xs : Γ ⊢ `list σ) → Γ ⊢ τ
 
-_⊢ε_ : ∀ (Δ Γ : Con ty) → Set
+_⊢ε_ : ∀ {n} (Δ Γ : Con (ty n)) → Set
 Δ ⊢ε ε = ⊤
 Δ ⊢ε Γ ∙ σ = Δ ⊢ε Γ × Δ ⊢ σ
 
 {- weakenings -}
 
-⊢-weaken : ∀ {Γ Δ σ} (inc : Γ ⊆ Δ) (t : Γ ⊢ σ) → Δ ⊢ σ
+⊢-weaken : ∀ {n} {Γ Δ} {σ : ty n} (inc : Γ ⊆ Δ) (t : Γ ⊢ σ) → Δ ⊢ σ
 ⊢-weaken inc (`v pr) = `v (inc-in inc pr)
 ⊢-weaken inc (`λ t) = `λ (⊢-weaken (pop! inc) t)
 ⊢-weaken inc (f `$ x) = ⊢-weaken inc f `$ ⊢-weaken inc x
@@ -60,18 +64,18 @@ _⊢ε_ : ∀ (Δ Γ : Con ty) → Set
 ⊢-weaken inc (`map f xs) = `map (⊢-weaken inc f) (⊢-weaken inc xs)
 ⊢-weaken inc (`fold c n xs) = `fold (⊢-weaken inc c) (⊢-weaken inc n) (⊢-weaken inc xs)
 
-⊢ε-weaken : ∀ Γ {Δ Ε} (inc : Δ ⊆ Ε) (ρ : Δ ⊢ε Γ) → Ε ⊢ε Γ
+⊢ε-weaken : ∀ {n} (Γ : Con (ty n)) {Δ Ε} (inc : Δ ⊆ Ε) (ρ : Δ ⊢ε Γ) → Ε ⊢ε Γ
 ⊢ε-weaken ε inc ρ = ρ
 ⊢ε-weaken (Γ ∙ σ) inc (ρ , r) = ⊢ε-weaken Γ inc ρ , ⊢-weaken inc r
 
 {- deleting superfluous elements / "anti-weakening" -}
 
-purge : ∀ {Γ Δ Ε} (pr : Γ ⊆ Δ) (ρ : Ε ⊢ε Δ) → Ε ⊢ε Γ
+purge : ∀ {n} {Γ Δ Ε : Con (ty n)} (pr : Γ ⊆ Δ) (ρ : Ε ⊢ε Δ) → Ε ⊢ε Γ
 purge base ρ = ρ
 purge (step inc) (ρ , _) = purge inc ρ
 purge (pop! inc) (ρ , r) = purge inc ρ , r
 
-⊢ε-weaken-purge : ∀ {Γ Δ Ε Φ} (pr₁ : Γ ⊆ Δ) (pr₂ : Ε ⊆ Φ) (ρ : Ε ⊢ε Δ) →
+⊢ε-weaken-purge : ∀ {n} {Γ Δ Ε Φ : Con (ty n)} (pr₁ : Γ ⊆ Δ) (pr₂ : Ε ⊆ Φ) (ρ : Ε ⊢ε Δ) →
                   ⊢ε-weaken Γ pr₂ (purge pr₁ ρ) ≡ purge pr₁ (⊢ε-weaken Δ pr₂ ρ)
 ⊢ε-weaken-purge base pr₂ ρ = refl
 ⊢ε-weaken-purge (step inc) pr₂ (ρ , _) = ⊢ε-weaken-purge inc pr₂ ρ
@@ -79,13 +83,13 @@ purge (pop! inc) (ρ , r) = purge inc ρ , r
 
 {- substitutions induced by environments -}
 
-get : ∀ {Δ Γ σ} (pr : σ ∈ Γ) (ρ : Δ ⊢ε Γ) → Δ ⊢ σ
+get : ∀ {n Δ Γ} {σ : ty n} (pr : σ ∈ Γ) (ρ : Δ ⊢ε Γ) → Δ ⊢ σ
 get here! (_ , r) = r
 get (there pr) (ρ , _) = get pr ρ
 
-subst : ∀ {Γ Δ σ} (t : Γ ⊢ σ) (ρ : Δ ⊢ε Γ) → Δ ⊢ σ
+subst : ∀ {n Γ Δ} {σ : ty n} (t : Γ ⊢ σ) (ρ : Δ ⊢ε Γ) → Δ ⊢ σ
 subst (`v pr) ρ = get pr ρ
-subst {Γ} (`λ t) ρ = `λ (subst t (⊢ε-weaken Γ (step (same _)) ρ , `v here!))
+subst {Γ = Γ} (`λ t) ρ = `λ (subst t (⊢ε-weaken Γ (step (same _)) ρ , `v here!))
 subst (f `$ x) ρ = subst f ρ `$ subst x ρ
 subst `⟨⟩ ρ = `⟨⟩
 subst (a `, b) ρ = subst a ρ `, subst b ρ
@@ -97,13 +101,13 @@ subst (xs `++ ys) ρ = subst xs ρ `++ subst ys ρ
 subst (`map f xs) ρ = `map (subst f ρ) (subst xs ρ)
 subst (`fold c n xs) ρ = `fold (subst c ρ) (subst n ρ) (subst xs ρ)
 
-⊢ε² : ∀ {Δ Ε} Γ (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) → Ε ⊢ε Γ
+⊢ε² : ∀ {n Δ Ε} (Γ : Con (ty n)) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) → Ε ⊢ε Γ
 ⊢ε² ε ρ₁ ρ₂ = tt
 ⊢ε² (Γ ∙ γ) (ρ₁ , r₁) ρ₂ = ⊢ε² Γ ρ₁ ρ₂ , subst r₁ ρ₂
 
 {- identity weakening -}
 
-⊢-weaken-refl : ∀ {Γ σ} (t : Γ ⊢ σ) → ⊢-weaken (same _) t ≡ t
+⊢-weaken-refl : ∀ {n Γ} {σ : ty n} (t : Γ ⊢ σ) → ⊢-weaken (same _) t ≡ t
 ⊢-weaken-refl (`v pr) = cong `v (inc-in-same pr)
 ⊢-weaken-refl (`λ t) = cong `λ (⊢-weaken-refl t)
 ⊢-weaken-refl (f `$ x) = cong₂ _`$_ (⊢-weaken-refl f) (⊢-weaken-refl x)
@@ -117,13 +121,13 @@ subst (`fold c n xs) ρ = `fold (subst c ρ) (subst n ρ) (subst xs ρ)
 ⊢-weaken-refl (`map f xs) = cong₂ `map (⊢-weaken-refl f) (⊢-weaken-refl xs)
 ⊢-weaken-refl (`fold c n xs) = cong₃ `fold (⊢-weaken-refl c) (⊢-weaken-refl n) (⊢-weaken-refl xs)
 
-⊢ε-weaken-refl : ∀ {Δ} Γ (ρ : Δ ⊢ε Γ) → ⊢ε-weaken Γ (same _) ρ ≡ ρ
+⊢ε-weaken-refl : ∀ {n Δ} (Γ : Con (ty n)) (ρ : Δ ⊢ε Γ) → ⊢ε-weaken Γ (same _) ρ ≡ ρ
 ⊢ε-weaken-refl ε ρ = refl
 ⊢ε-weaken-refl (Γ ∙ σ) (ρ , r) = cong₂ _,_ (⊢ε-weaken-refl Γ ρ) (⊢-weaken-refl r)
 
 {- weakenings fusion -}
 
-⊢-weaken² : ∀ {Γ Δ Ε σ} (inc : Γ ⊆ Δ) (inc' : Δ ⊆ Ε) (t : Γ ⊢ σ) →
+⊢-weaken² : ∀ {n Γ Δ Ε} {σ : ty n} (inc : Γ ⊆ Δ) (inc' : Δ ⊆ Ε) (t : Γ ⊢ σ) →
             ⊢-weaken inc' (⊢-weaken inc t) ≡ ⊢-weaken (⊆-trans inc inc') t
 ⊢-weaken² inc inc' (`v pr) = cong `v (inc-in² inc inc' pr)
 ⊢-weaken² inc inc' (`λ t) = cong `λ (⊢-weaken² (pop! inc) (pop! inc') t)
@@ -139,18 +143,19 @@ subst (`fold c n xs) ρ = `fold (subst c ρ) (subst n ρ) (subst xs ρ)
 ⊢-weaken² inc inc' (`fold c n xs) =
   cong₃ `fold (⊢-weaken² inc inc' c) (⊢-weaken² inc inc' n) (⊢-weaken² inc inc' xs)
 
-⊢ε-weaken² : ∀ Γ {Δ Ε Φ} (inc : Δ ⊆ Ε) (inc' : Ε ⊆ Φ) (ρ : Δ ⊢ε Γ) →
+⊢ε-weaken² : ∀ {n} Γ {Δ Ε Φ : Con (ty n)} (inc : Δ ⊆ Ε) (inc' : Ε ⊆ Φ) (ρ : Δ ⊢ε Γ) →
              ⊢ε-weaken Γ inc' (⊢ε-weaken Γ inc ρ) ≡ ⊢ε-weaken Γ (⊆-trans inc inc') ρ
 ⊢ε-weaken² ε inc inc' ρ = refl
 ⊢ε-weaken² (Γ ∙ σ) inc inc' (ρ , r) = cong₂ _,_ (⊢ε-weaken² Γ inc inc' ρ) (⊢-weaken² inc inc' r)
 
 {- canonical environment -}
 
-⊢ε-refl : (Γ : Con ty) → Γ ⊢ε Γ
+⊢ε-refl : ∀ {n} (Γ : Con (ty n)) → Γ ⊢ε Γ
 ⊢ε-refl ε = tt
 ⊢ε-refl (Γ ∙ σ) = ⊢ε-weaken Γ (step (same _)) (⊢ε-refl Γ) , `v here!
 
-purge-⊢ε-refl : ∀ {Γ Δ} (pr : Γ ⊆ Δ) → purge pr (⊢ε-refl Δ) ≡ ⊢ε-weaken Γ pr (⊢ε-refl Γ)
+purge-⊢ε-refl : ∀ {n} {Γ Δ : Con (ty n)} (pr : Γ ⊆ Δ) →
+  purge pr (⊢ε-refl Δ) ≡ ⊢ε-weaken Γ pr (⊢ε-refl Γ)
 purge-⊢ε-refl base = refl
 purge-⊢ε-refl (step {Γ} {Δ} {σ} pr) =
   trans (sym (⊢ε-weaken-purge pr _ (⊢ε-refl Δ))) (trans (cong (⊢ε-weaken Γ _) (purge-⊢ε-refl pr))
@@ -164,20 +169,20 @@ purge-⊢ε-refl (pop! {Γ} {Δ} {σ} pr) =
 
 {- identity substitution -}
 
-get-refl-weaken : ∀ {Γ Δ σ} (pr : σ ∈ Γ) (inc : Γ ⊆ Δ) →
+get-refl-weaken : ∀ {n} {Γ Δ} {σ : ty n} (pr : σ ∈ Γ) (inc : Γ ⊆ Δ) →
                   get pr (⊢ε-weaken Γ inc (⊢ε-refl Γ)) ≡ `v (inc-in inc pr)
-get-refl-weaken {ε} () inc
+get-refl-weaken {Γ = ε} () inc
 get-refl-weaken here! inc = refl
-get-refl-weaken {Γ ∙ σ} (there pr) inc =
+get-refl-weaken {Γ = Γ ∙ σ} (there pr) inc =
   trans (cong (get pr) (⊢ε-weaken² Γ (step (same _)) inc (⊢ε-refl Γ)))
- (trans (get-refl-weaken {Γ} pr _) (cong `v (inc-in-step inc pr)))
+ (trans (get-refl-weaken {Γ = Γ} pr _) (cong `v (inc-in-step inc pr)))
 
-get-refl : ∀ {Γ σ} (pr : σ ∈ Γ) → get pr (⊢ε-refl Γ) ≡ `v pr
-get-refl {Γ} pr =
+get-refl : ∀ {n Γ} {σ : ty n} (pr : σ ∈ Γ) → get pr (⊢ε-refl Γ) ≡ `v pr
+get-refl {Γ = Γ} pr =
   trans (cong (get pr) (sym (⊢ε-weaken-refl Γ (⊢ε-refl Γ))))
  (trans (get-refl-weaken pr (same _)) (cong `v (inc-in-same pr)))
 
-subst-refl : ∀ {Γ σ} (t : Γ ⊢ σ) → subst t (⊢ε-refl Γ) ≡ t
+subst-refl : ∀ {n Γ} {σ : ty n} (t : Γ ⊢ σ) → subst t (⊢ε-refl Γ) ≡ t
 subst-refl (`v pr) = get-refl pr
 subst-refl (`λ t) = cong `λ (subst-refl t)
 subst-refl (f `$ x) = cong₂ _`$_ (subst-refl f) (subst-refl x)
@@ -193,25 +198,25 @@ subst-refl (`fold c n xs) = cong₃ `fold (subst-refl c) (subst-refl n) (subst-r
 
 {- identity purge ; composition -}
 
-purge-refl : ∀ Γ {Δ} (ρ : Δ ⊢ε Γ) → purge (same Γ) ρ ≡ ρ
+purge-refl : ∀ {n} (Γ : Con (ty n)) {Δ} (ρ : Δ ⊢ε Γ) → purge (same Γ) ρ ≡ ρ
 purge-refl ε ρ = refl
 purge-refl (Γ ∙ σ) (ρ , r) = cong (λ ρ → ρ , r) (purge-refl Γ ρ)
 
-⊢ε²-refl : ∀ {Δ} Γ (ρ : Δ ⊢ε Γ) → ⊢ε² Γ ρ (⊢ε-refl Δ) ≡ ρ
+⊢ε²-refl : ∀ {n Δ} (Γ : Con (ty n)) (ρ : Δ ⊢ε Γ) → ⊢ε² Γ ρ (⊢ε-refl Δ) ≡ ρ
 ⊢ε²-refl ε ρ = refl
 ⊢ε²-refl (Γ ∙ σ) (ρ , r) = cong₂ _,_ (⊢ε²-refl Γ ρ) (subst-refl r)
 
 {- subst weaken fusion -}
 
-weaken-get : ∀ {Γ Δ Ε σ} (pr : σ ∈ Γ) (inc : Δ ⊆ Ε) (ρ : Δ ⊢ε Γ) →
+weaken-get : ∀ {n Γ Δ Ε} {σ : ty n} (pr : σ ∈ Γ) (inc : Δ ⊆ Ε) (ρ : Δ ⊢ε Γ) →
              ⊢-weaken inc (get pr ρ) ≡ get pr (⊢ε-weaken Γ inc ρ)
 weaken-get here! inc ρ = refl
 weaken-get (there {- if we want to -} pr) inc (ρ , _) = weaken-get pr inc ρ
 
-weaken-subst : ∀ {Γ Δ Ε σ} (inc : Δ ⊆ Ε) (t : Γ ⊢ σ) (ρ : Δ ⊢ε Γ) →
+weaken-subst : ∀ {n Γ Δ Ε} {σ : ty n} (inc : Δ ⊆ Ε) (t : Γ ⊢ σ) (ρ : Δ ⊢ε Γ) →
                ⊢-weaken inc (subst t ρ) ≡ subst t (⊢ε-weaken Γ inc ρ)
 weaken-subst inc (`v pr) ρ = weaken-get pr inc ρ
-weaken-subst {Γ} inc (`λ t) ρ =
+weaken-subst {Γ = Γ} inc (`λ t) ρ =
   cong `λ (trans (weaken-subst (pop! inc) t _) (cong (λ ρ → subst t (ρ , `v here!))
   (trans (⊢ε-weaken² Γ _ _ ρ) (trans (cong (λ inc → ⊢ε-weaken Γ inc ρ) (⊆-step-same inc))
   (sym (⊢ε-weaken² Γ _ _ ρ))))))
@@ -227,7 +232,7 @@ weaken-subst inc (`map f xs) ρ = cong₂ `map (weaken-subst inc f ρ) (weaken-s
 weaken-subst inc (`fold c n xs) ρ =
   cong₃ `fold (weaken-subst inc c ρ) (weaken-subst inc n ρ) (weaken-subst inc xs ρ)
 
-get-inc : ∀ {Γ Δ Ε σ} (inc : Γ ⊆ Δ) (pr : σ ∈ Γ) (ρ : Ε ⊢ε Δ) →
+get-inc : ∀ {n Γ Δ Ε} {σ : ty n} (inc : Γ ⊆ Δ) (pr : σ ∈ Γ) (ρ : Ε ⊢ε Δ) →
           get (inc-in inc pr) ρ ≡ get pr (purge inc ρ)
 get-inc base () _
 get-inc (step inc) here! (ρ , _) = get-inc inc here! ρ
@@ -235,7 +240,7 @@ get-inc (pop! inc) here! ρ = refl
 get-inc (step inc) (there pr) (ρ , _) = get-inc inc (there pr) ρ
 get-inc (pop! inc) (there pr) (ρ , _) = get-inc inc pr ρ
 
-subst-weaken : ∀ {Γ Δ Ε σ} (inc : Γ ⊆ Δ) (t : Γ ⊢ σ) (ρ : Ε ⊢ε Δ) →
+subst-weaken : ∀ {n Γ Δ Ε} {σ : ty n} (inc : Γ ⊆ Δ) (t : Γ ⊢ σ) (ρ : Ε ⊢ε Δ) →
                subst (⊢-weaken inc t) ρ ≡ subst t (purge inc ρ)
 subst-weaken inc (`v pr) ρ = get-inc inc pr ρ
 subst-weaken inc (`λ t) ρ =
@@ -255,35 +260,35 @@ subst-weaken inc (`fold c n xs) ρ =
 
 {- environment composition simplification -}
 
-⊢ε²-weaken : ∀ {Δ Ε Φ} Γ (pr : Ε ⊆ Φ) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) →
+⊢ε²-weaken : ∀ {n} {Δ Ε Φ : Con (ty n)} Γ (pr : Ε ⊆ Φ) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) →
              ⊢ε-weaken Γ pr (⊢ε² Γ ρ₁ ρ₂) ≡ ⊢ε² Γ ρ₁ (⊢ε-weaken Δ pr ρ₂)
 ⊢ε²-weaken ε pr ρ₁ ρ₂ = refl
 ⊢ε²-weaken (Γ ∙ σ) pr (ρ₁ , r₁) ρ₂ = cong₂ _,_ (⊢ε²-weaken Γ pr ρ₁ ρ₂) (weaken-subst pr r₁ ρ₂)
 
 
-⊢ε²-step : ∀ {Δ Ε σ} Γ (inc : Δ ⊆ Ε) (ρ₁ : Δ ⊢ε Γ) {Φ} (ρ₂ : Φ ⊢ε Ε) (s : Φ ⊢ σ) →
+⊢ε²-step : ∀ {n Δ Ε} {σ : ty n} Γ (inc : Δ ⊆ Ε) (ρ₁ : Δ ⊢ε Γ) {Φ} (ρ₂ : Φ ⊢ε Ε) (s : Φ ⊢ σ) →
            ⊢ε² Γ (⊢ε-weaken Γ (step inc) ρ₁) (ρ₂ , s) ≡ ⊢ε² Γ (⊢ε-weaken Γ inc ρ₁) ρ₂
 ⊢ε²-step ε inc ρ₁ ρ₂ s = refl
 ⊢ε²-step {Δ} (Γ ∙ σ) inc (ρ₁ , r₁) ρ₂ s =
   cong₂ _,_ (⊢ε²-step Γ inc ρ₁ ρ₂ s)
   (trans (subst-weaken (step inc) r₁ (ρ₂ , s)) (sym (subst-weaken inc r₁ ρ₂)))
 
-⊢ε²-step-same : ∀ {Δ Ε σ} Γ (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) (s : Ε ⊢ σ) →
+⊢ε²-step-same : ∀ {n Δ Ε} {σ : ty n} Γ (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) (s : Ε ⊢ σ) →
            ⊢ε² Γ (⊢ε-weaken Γ (step (same Δ)) ρ₁) (ρ₂ , s) ≡ ⊢ε² Γ ρ₁ ρ₂
 ⊢ε²-step-same Γ ρ₁ ρ₂ s =
   trans (⊢ε²-step Γ (same _) ρ₁ ρ₂ s) (cong (λ ρ → ⊢ε² Γ ρ ρ₂) (⊢ε-weaken-refl Γ ρ₁))
 
 {- substitutions fusion -}
 
-get-⊢ε² : ∀ {Γ Δ Ε σ} (pr : σ ∈ Γ) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) →
+get-⊢ε² : ∀ {n Γ Δ Ε} {σ : ty n} (pr : σ ∈ Γ) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) →
            subst (get pr ρ₁) ρ₂ ≡ get pr (⊢ε² Γ ρ₁ ρ₂)
 get-⊢ε² here! ρ₁ ρ₂ = refl
 get-⊢ε² (there pr) (ρ₁ , _) ρ₂ = get-⊢ε² pr ρ₁ ρ₂
 
-subst² : ∀ {Γ Δ Ε σ} (t : Γ ⊢ σ) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) →
+subst² : ∀ {n Γ Δ Ε} {σ : ty n} (t : Γ ⊢ σ) (ρ₁ : Δ ⊢ε Γ) (ρ₂ : Ε ⊢ε Δ) →
              subst (subst t ρ₁) ρ₂ ≡ subst t (⊢ε² Γ ρ₁ ρ₂)
 subst² (`v pr) ρ₁ ρ₂ = get-⊢ε² pr ρ₁ ρ₂
-subst² {Γ} {Δ} {Ε} (`λ t) ρ₁ ρ₂ =
+subst² {_} {Γ} {Δ} {Ε} (`λ t) ρ₁ ρ₂ =
   cong `λ (trans (subst² t _ _) (cong (λ ρ → subst t (ρ , `v here!))
   (trans (⊢ε²-step-same Γ ρ₁ _ (`v here!)) (sym (⊢ε²-weaken Γ _ ρ₁ ρ₂)))))
 subst² (f `$ x) ρ₁ ρ₂ = cong₂ _`$_ (subst² f ρ₁ ρ₂) (subst² x ρ₁ ρ₂)
@@ -297,9 +302,9 @@ subst² (xs `++ ys) ρ₁ ρ₂ = cong₂ _`++_ (subst² xs ρ₁ ρ₂) (subst�
 subst² (`map f xs) ρ₁ ρ₂ = cong₂ `map (subst² f ρ₁ ρ₂) (subst² xs ρ₁ ρ₂)
 subst² (`fold c n xs) ρ₁ ρ₂ = cong₃ `fold (subst² c ρ₁ ρ₂) (subst² n ρ₁ ρ₂) (subst² xs ρ₁ ρ₂)
 
-subst-pop : ∀ {Δ Γ σ τ} (t : Γ ⊢ σ) (s : Δ ⊢ τ) (inc : Γ ⊆ Δ) →
+subst-pop : ∀ {n Δ Γ} {σ τ : ty n} (t : Γ ⊢ σ) (s : Δ ⊢ τ) (inc : Γ ⊆ Δ) →
   ⊢-weaken inc t ≡ subst (⊢-weaken (pop! inc) (⊢-weaken (step (same _)) t)) (⊢ε-refl Δ , s)
-subst-pop {Δ} t s inc =
+subst-pop {Δ = Δ} t s inc =
   trans (trans (trans (sym (subst-refl (⊢-weaken inc t))) (trans (subst-weaken inc t (⊢ε-refl Δ))
   (cong (λ pr → subst t (purge pr (⊢ε-refl Δ))) (sym (⊆-same-l inc)))))
   (sym (subst-weaken (⊆-trans (step (same _)) (pop! inc)) t (⊢ε-refl Δ , s))))
@@ -308,11 +313,11 @@ subst-pop {Δ} t s inc =
 
 {- important notions now definable -}
 
-η-expand : ∀ {Γ σ τ} (t : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ τ
+η-expand : ∀ {n Γ} {σ τ : ty n} (t : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ τ
 η-expand t = `λ (⊢-weaken (step (same _)) t `$ `v here!)
 
-β-reduce : ∀ {Γ σ τ} (t : Γ ∙ σ ⊢ τ) (s : Γ ⊢ σ) → Γ ⊢ τ
-β-reduce {Γ} t s = subst t (⊢ε-refl Γ , s)
+β-reduce : ∀ {n Γ} {σ τ : ty n} (t : Γ ∙ σ ⊢ τ) (s : Γ ⊢ σ) → Γ ⊢ τ
+β-reduce {Γ = Γ} t s = subst t (⊢ε-refl Γ , s)
 
-_`∘_ : ∀ {Γ σ τ υ} (g : Γ ⊢ τ `→ υ) (f : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ υ
+_`∘_ : ∀ {n Γ} {σ τ υ : ty n} (g : Γ ⊢ τ `→ υ) (f : Γ ⊢ σ `→ τ) → Γ ⊢ σ `→ υ
 g `∘ f = `λ (⊢-weaken (step (same _)) g `$ (⊢-weaken (step (same _)) f `$ `v here!))

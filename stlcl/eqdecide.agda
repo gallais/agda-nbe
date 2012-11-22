@@ -5,28 +5,45 @@ open import tools.closures
 
 open import stlcl.definition
 open import stlcl.reductions
-open import stlcl.simple.model
 open import stlcl.simple.eval
 open import stlcl.simple.sound
 open import stlcl.simple.complete
 
+open import Data.Fin
 open import Data.Product
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 
+suc-inv : ∀ {n} {k₁ k₂ : Fin n} (eq : suc k₁ ≡ suc k₂) → k₁ ≡ k₂
+suc-inv refl = refl
+
+Fin-dec : ∀ {n} (k₁ k₂ : Fin n) → Dec (k₁ ≡ k₂)
+Fin-dec zero zero = yes refl
+Fin-dec zero (suc k₂) = no (λ ())
+Fin-dec (suc k₁) zero = no (λ ())
+Fin-dec (suc k₁) (suc k₂) with Fin-dec k₁ k₂
+... | yes p rewrite p = yes refl
+... | no ¬p = no (λ p → ¬p (suc-inv p))
+
 -- decidability of equality between types
 
-`×-inv : ∀ {σ₁ σ₂ τ₁ τ₂} (eq : σ₁ `× τ₁ ≡ σ₂ `× τ₂) → (σ₁ ≡ σ₂) × (τ₁ ≡ τ₂)
+`b-inv : ∀ {n} {k₁ k₂ : Fin n} (eq : `b k₁ ≡ `b k₂) → k₁ ≡ k₂
+`b-inv refl = refl
+
+`×-inv : ∀ {n} {σ₁ σ₂ τ₁ τ₂ : ty n} (eq : σ₁ `× τ₁ ≡ σ₂ `× τ₂) → (σ₁ ≡ σ₂) × (τ₁ ≡ τ₂)
 `×-inv refl = refl , refl
 
-`→-inv : ∀ {σ₁ σ₂ τ₁ τ₂} (eq : σ₁ `→ τ₁ ≡ σ₂ `→ τ₂) → (σ₁ ≡ σ₂) × (τ₁ ≡ τ₂)
+`→-inv : ∀ {n} {σ₁ σ₂ τ₁ τ₂ : ty n} (eq : σ₁ `→ τ₁ ≡ σ₂ `→ τ₂) → (σ₁ ≡ σ₂) × (τ₁ ≡ τ₂)
 `→-inv refl = refl , refl
 
-`list-inv : ∀ {σ₁ σ₂} (eq : `list σ₁ ≡ `list σ₂) → σ₁ ≡ σ₂
+`list-inv : ∀ {n} {σ₁ σ₂ : ty n} (eq : `list σ₁ ≡ `list σ₂) → σ₁ ≡ σ₂
 `list-inv refl = refl
 
-ty-dec : ∀ (σ τ : ty) → Dec (σ ≡ τ)
+ty-dec : ∀ {n} (σ τ : ty n) → Dec (σ ≡ τ)
 ty-dec `1 `1 = yes refl
+ty-dec (`b k₁) (`b k₂) with Fin-dec k₁ k₂
+... | yes p rewrite p = yes refl
+... | no ¬p = no (λ p → ¬p (`b-inv p))
 ty-dec (σ₁ `× τ₁) (σ₂ `× τ₂) with ty-dec σ₁ σ₂ | ty-dec τ₁ τ₂
 ... | yes p₁ | yes p₂ = yes (cong₂ _`×_ p₁ p₂)
 ... | no ¬p₁ | _ = no (λ p → ¬p₁ (proj₁ (`×-inv p)))
@@ -38,80 +55,89 @@ ty-dec (σ₁ `→ τ₁) (σ₂ `→ τ₂) with ty-dec σ₁ σ₂ | ty-dec τ
 ty-dec (`list σ₁) (`list σ₂) with ty-dec σ₁ σ₂
 ... | yes p = yes (cong `list_ p)
 ... | no ¬p = no (λ p → ¬p (`list-inv p))
+ty-dec `1 (`b _) = no (λ ())
 ty-dec `1 (_ `× _) = no (λ ())
 ty-dec `1 (_ `→ _) = no (λ ())
 ty-dec `1 (`list _) = no (λ ())
+ty-dec (`b _) `1 = no (λ ())
+ty-dec (`b _) (_ `× _) = no (λ ())
+ty-dec (`b _) (_ `→ _) = no (λ ())
+ty-dec (`b _) (`list _) = no (λ ())
 ty-dec (_ `× _) `1 = no (λ ())
+ty-dec (_ `× _) (`b _) = no (λ ())
 ty-dec (_ `× _) (_ `→ _) = no (λ ())
 ty-dec (_ `× _) (`list _) = no (λ ())
 ty-dec (_ `→ _) `1 = no (λ ())
+ty-dec (_ `→ _) (`b _) = no (λ ())
 ty-dec (_ `→ _) (_ `× _) = no (λ ())
 ty-dec (_ `→ _) (`list _) = no (λ ())
 ty-dec (`list _) `1 = no (λ ())
+ty-dec (`list _) (`b _) = no (λ ())
 ty-dec (`list _) (_ `× _) = no (λ ())
 ty-dec (`list _) (_ `→ _) = no (λ ())
 
 -- decidability of equality of terms
 
-`v-inv : ∀ {Γ σ} {pr₁ pr₂ : σ ∈ Γ} (eq : _≡_ {A = Γ ⊢ σ} (`v pr₁) (`v pr₂)) → pr₁ ≡ pr₂
+`v-inv : ∀ {n Γ} {σ : ty n} {pr₁ pr₂ : σ ∈ Γ} (eq : _≡_ {A = Γ ⊢ σ} (`v pr₁) (`v pr₂)) → pr₁ ≡ pr₂
 `v-inv refl = refl
 
-`λ-inv : ∀ {Γ σ τ} {t₁ t₂ : Γ ∙ σ ⊢ τ} (eq : _≡_ {A = Γ ⊢ σ `→ τ} (`λ t₁) (`λ t₂)) → t₁ ≡ t₂
+`λ-inv : ∀ {n Γ} {σ τ : ty n} {t₁ t₂ : Γ ∙ σ ⊢ τ}
+  (eq : _≡_ {A = Γ ⊢ σ `→ τ} (`λ t₁) (`λ t₂)) → t₁ ≡ t₂
 `λ-inv refl = refl
 
-`$-ty-inv : ∀ {Γ σ₁ σ₂ τ} {t₁ : Γ ⊢ σ₁ `→ τ} {t₂ : Γ ⊢ σ₂ `→ τ} {u₁ : Γ ⊢ σ₁} {u₂ : Γ ⊢ σ₂}
+`$-ty-inv : ∀ {n Γ} {σ₁ σ₂ τ : ty n} {t₁ : Γ ⊢ σ₁ `→ τ} {t₂ : Γ ⊢ σ₂ `→ τ} {u₁ : Γ ⊢ σ₁} {u₂ : Γ ⊢ σ₂}
   (eq : _≡_ {A = Γ ⊢ τ} (t₁ `$ u₁) (t₂ `$ u₂)) → σ₁ ≡ σ₂
 `$-ty-inv refl = refl
 
-`$-inv : ∀ {Γ σ τ} {t₁ t₂ : Γ ⊢ σ `→ τ} {u₁ u₂ : Γ ⊢ σ}
+`$-inv : ∀ {n Γ} {σ τ : ty n} {t₁ t₂ : Γ ⊢ σ `→ τ} {u₁ u₂ : Γ ⊢ σ}
   (eq : _≡_ {A = Γ ⊢ τ} (t₁ `$ u₁) (t₂ `$ u₂)) → (t₁ ≡ t₂) × (u₁ ≡ u₂)
 `$-inv refl = refl , refl
 
-`,-inv : ∀ {Γ σ τ} {a₁ a₂ : Γ ⊢ σ} {b₁ b₂ : Γ ⊢ τ}
+`,-inv : ∀ {n Γ} {σ τ : ty n} {a₁ a₂ : Γ ⊢ σ} {b₁ b₂ : Γ ⊢ τ}
   (eq : _≡_ {A = Γ ⊢ σ `× τ} (a₁ `, b₁) (a₂ `, b₂)) → (a₁ ≡ a₂) × (b₁ ≡ b₂)
 `,-inv refl = refl , refl
 
-`π₁-ty-inv : ∀ {Γ σ τ₁ τ₂} {t₁ : Γ ⊢ σ `× τ₁} {t₂ : Γ ⊢ σ `× τ₂}
+`π₁-ty-inv : ∀ {n Γ} {σ τ₁ τ₂ : ty n} {t₁ : Γ ⊢ σ `× τ₁} {t₂ : Γ ⊢ σ `× τ₂}
   (eq : _≡_ {A = Γ ⊢ σ} (`π₁ t₁) (`π₁ t₂)) → τ₁ ≡ τ₂
 `π₁-ty-inv refl = refl
 
-`π₁-inv : ∀ {Γ σ τ} {t₁ t₂ : Γ ⊢ σ `× τ} (eq : _≡_ {A = Γ ⊢ σ} (`π₁ t₁) (`π₁ t₂)) → t₁ ≡ t₂
+`π₁-inv : ∀ {n Γ} {σ τ : ty n} {t₁ t₂ : Γ ⊢ σ `× τ} (eq : _≡_ {A = Γ ⊢ σ} (`π₁ t₁) (`π₁ t₂)) → t₁ ≡ t₂
 `π₁-inv refl = refl
 
-`π₂-ty-inv : ∀ {Γ σ₁ σ₂ τ} {t₁ : Γ ⊢ σ₁ `× τ} {t₂ : Γ ⊢ σ₂ `× τ}
+`π₂-ty-inv : ∀ {n Γ} {σ₁ σ₂ τ : ty n} {t₁ : Γ ⊢ σ₁ `× τ} {t₂ : Γ ⊢ σ₂ `× τ}
   (eq : _≡_ {A = Γ ⊢ τ} (`π₂ t₁) (`π₂ t₂)) → σ₁ ≡ σ₂
 `π₂-ty-inv refl = refl
 
-`π₂-inv : ∀ {Γ σ τ} {t₁ t₂ : Γ ⊢ σ `× τ} (eq : _≡_ {A = Γ ⊢ τ} (`π₂ t₁) (`π₂ t₂)) → t₁ ≡ t₂
+`π₂-inv : ∀ {n Γ} {σ τ : ty n} {t₁ t₂ : Γ ⊢ σ `× τ} (eq : _≡_ {A = Γ ⊢ τ} (`π₂ t₁) (`π₂ t₂)) → t₁ ≡ t₂
 `π₂-inv refl = refl
 
-`∷-inv : ∀ {Γ σ} {hd₁ hd₂ : Γ ⊢ σ} {tl₁ tl₂ : Γ ⊢ `list σ}
+`∷-inv : ∀ {n Γ} {σ : ty n} {hd₁ hd₂ : Γ ⊢ σ} {tl₁ tl₂ : Γ ⊢ `list σ}
   (eq : _≡_ {A = Γ ⊢ `list σ} (hd₁ `∷ tl₁) (hd₂ `∷ tl₂)) → (hd₁ ≡ hd₂) × (tl₁ ≡ tl₂)
 `∷-inv refl = refl , refl
 
-`++-inv : ∀ {Γ σ} {xs₁ xs₂ ys₁ ys₂ : Γ ⊢ `list σ}
+`++-inv : ∀ {n Γ} {σ : ty n} {xs₁ xs₂ ys₁ ys₂ : Γ ⊢ `list σ}
   (eq : _≡_ {A = Γ ⊢ `list σ} (xs₁ `++ ys₁) (xs₂ `++ ys₂)) → (xs₁ ≡ xs₂) × (ys₁ ≡ ys₂)
 `++-inv refl = refl , refl
 
-`map-ty-inv : ∀ {Γ σ₁ σ₂ τ} {f₁ : Γ ⊢ σ₁ `→ τ} {f₂ : Γ ⊢ σ₂ `→ τ}
+`map-ty-inv : ∀ {n Γ} {σ₁ σ₂ τ : ty n} {f₁ : Γ ⊢ σ₁ `→ τ} {f₂ : Γ ⊢ σ₂ `→ τ}
   {xs₁ : Γ ⊢ `list σ₁} {xs₂ : Γ ⊢ `list σ₂}
   (eq : _≡_ {A = Γ ⊢ `list τ} (`map f₁ xs₁) (`map f₂ xs₂)) → σ₁ ≡ σ₂
 `map-ty-inv refl = refl
 
-`map-inv : ∀ {Γ σ τ} {f₁ f₂ : Γ ⊢ σ `→ τ} {xs₁ xs₂ : Γ ⊢ `list σ}
+`map-inv : ∀ {n Γ} {σ τ : ty n} {f₁ f₂ : Γ ⊢ σ `→ τ} {xs₁ xs₂ : Γ ⊢ `list σ}
   (eq : _≡_ {A = Γ ⊢ `list τ} (`map f₁ xs₁) (`map f₂ xs₂)) → (f₁ ≡ f₂) × (xs₁ ≡ xs₂)
 `map-inv refl = refl , refl
 
-`fold-ty-inv : ∀ {Γ σ₁ σ₂ τ} {c₁ : Γ ⊢ σ₁ `→ τ `→ τ} {n₁ : Γ ⊢ τ} {xs₁ : Γ ⊢ `list σ₁}
+`fold-ty-inv : ∀ {n Γ} {σ₁ σ₂ τ : ty n} {c₁ : Γ ⊢ σ₁ `→ τ `→ τ} {n₁ : Γ ⊢ τ} {xs₁ : Γ ⊢ `list σ₁}
   {c₂ : Γ ⊢ σ₂ `→ τ `→ τ} {n₂ : Γ ⊢ τ} {xs₂ : Γ ⊢ `list σ₂}
   (eq : _≡_ {A = Γ ⊢ τ} (`fold c₁ n₁ xs₁) (`fold c₂ n₂ xs₂)) → σ₁ ≡ σ₂
 `fold-ty-inv refl = refl
 
-`fold-inv : ∀ {Γ σ τ} {c₁ c₂ : Γ ⊢ σ `→ τ `→ τ} {n₁ n₂ : Γ ⊢ τ} {xs₁ xs₂ : Γ ⊢ `list σ}
+`fold-inv : ∀ {n Γ} {σ τ : ty n} {c₁ c₂ : Γ ⊢ σ `→ τ `→ τ} {n₁ n₂ : Γ ⊢ τ} {xs₁ xs₂ : Γ ⊢ `list σ}
   (eq : _≡_ {A = Γ ⊢ τ} (`fold c₁ n₁ xs₁) (`fold c₂ n₂ xs₂)) → (c₁ ≡ c₂) × (n₁ ≡ n₂) × (xs₁ ≡ xs₂)
 `fold-inv refl = refl , refl , refl
 
-⊢-dec : ∀ {Γ σ} (s t : Γ ⊢ σ) → Dec (s ≡ t)
+⊢-dec : ∀ {n Γ} {σ : ty n} (s t : Γ ⊢ σ) → Dec (s ≡ t)
 ⊢-dec (`v pr₁) (`v pr₂) with ∈-dec pr₁ pr₂
 ... | yes p = yes (cong `v p)
 ... | no ¬p = no (λ p → ¬p (`v-inv p))
@@ -264,7 +290,7 @@ ty-dec (`list _) (_ `→ _) = no (λ ())
 ⊢-dec (`fold _ _ _) (_ `++ _) = no (λ ())
 ⊢-dec (`fold _ _ _) (`map _ _) = no (λ ())
 
-≅-dec : ∀ {Γ σ} (s t : Γ ⊢ σ) → Dec (Γ ⊢ σ ∋ s ≅ t)
+≅-dec : ∀ {n Γ} {σ : ty n} (s t : Γ ⊢ σ) → Dec (Γ ⊢ σ ∋ s ≅ t)
 ≅-dec s t with ⊢-dec (norm s) (norm t)
 ... | yes p = yes (soundness p)
 ... | no ¬p = no (λ p → ¬p (completeness p))

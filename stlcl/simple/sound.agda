@@ -15,7 +15,7 @@ open import stlcl.simple.eval
 
 infix 2 [_⊩list_]_↯_ [_⊩_]_↯_ [_⊩ε_]_↯_ [_]_↯↓ne [_]_↝⋆↑_when_ 
 
-data [_⊩list_]_↯_ Γ {σ} {Σ : ∀ Δ → Set} (Σ↯ : ∀ Δ (t : Δ ⊢ σ) (T : Σ Δ) → Set)
+data [_⊩list_]_↯_ {n} Γ {σ : ty n} {Σ : ∀ Δ → Set} (Σ↯ : ∀ Δ (t : Δ ⊢ σ) (T : Σ Δ) → Set)
   (t : Γ ⊢ `list σ) : (T : Γ ⊩list Σ) → Set where
   `[] : (red : Γ ⊢ `list σ ∋ t ↝⋆ `[]) → [ Γ ⊩list Σ↯ ] t ↯ `[]
   _`∷_by_ : ∀ {hd HD} (rhd : Σ↯ Γ hd HD) {tl TL} (rtl : [ Γ ⊩list Σ↯ ] tl ↯ TL)
@@ -26,8 +26,9 @@ data [_⊩list_]_↯_ Γ {σ} {Σ : ∀ Δ → Set} (Σ↯ : ∀ Δ (t : Δ ⊢ 
     (red : Γ ⊢ `list σ ∋ t ↝⋆ `map f (back-ne xs) `++ ys) →
     [ Γ ⊩list Σ↯ ] t ↯ mappend F xs YS
 
-[_⊩_]_↯_ : ∀ Γ σ (t : Γ ⊢ σ) (T : Γ ⊩ σ) → Set
+[_⊩_]_↯_ : ∀ {n} Γ (σ : ty n) (t : Γ ⊢ σ) (T : Γ ⊩ σ) → Set
 [ Γ ⊩ `1 ] t ↯ T = ⊤
+[ Γ ⊩ `b k ] t ↯ T = Γ ⊢ `b k ∋ t ↝⋆ back-ne T
 [ Γ ⊩ σ `× τ ] t ↯ A , B =
   Σ[ a ∶ Γ ⊢ σ ] Σ[ b ∶ Γ ⊢ τ ]
   Γ ⊢ σ `× τ ∋ t ↝⋆ a `, b ×
@@ -39,7 +40,7 @@ data [_⊩list_]_↯_ Γ {σ} {Σ : ∀ Δ → Set} (Σ↯ : ∀ Δ (t : Δ ⊢ 
   [ Δ ⊩ τ ] fx ↯ F inc X 
 [ Γ ⊩ `list σ ] t ↯ T = [ Γ ⊩list (λ Γ t T → [ Γ ⊩ σ ] t ↯ T) ] t ↯ T
 
-[_⊩ε_]_↯_ : ∀ Δ Γ (ρ : Δ ⊢ε Γ) (T : Δ ⊩ε Γ) → Set
+[_⊩ε_]_↯_ : ∀ {n} (Δ Γ : Con (ty n)) (ρ : Δ ⊢ε Γ) (T : Δ ⊩ε Γ) → Set
 [ Δ ⊩ε ε ] ρ ↯ T = ⊤
 [ Δ ⊩ε Γ ∙ σ ] ρ , r ↯ T , t = [ Δ ⊩ε Γ ] ρ ↯ T × [ Δ ⊩ σ ] r ↯ t
 
@@ -49,7 +50,7 @@ mutual
 
   abstract
 
-    ↯list-weaken : ∀ {Γ} σ {Δ} (inc : Γ ⊆ Δ) {t T} (r : [ Γ ⊩ `list σ ] t ↯ T) →
+    ↯list-weaken : ∀ {n Γ} (σ : ty n) {Δ} (inc : Γ ⊆ Δ) {t T} (r : [ Γ ⊩ `list σ ] t ↯ T) →
       [ Δ ⊩ `list σ ] ⊢-weaken inc t ↯ ⊩-weaken (`list σ) inc T
     ↯list-weaken σ inc (`[] red) = `[] (↝⋆-weaken inc red)
     ↯list-weaken σ inc (rhd `∷ rtl by red) =
@@ -67,9 +68,17 @@ mutual
          Δ ⊢ `list σ ∋ `map (⊢-weaken inc f) (back-ne (ne-weaken inc xs)) `++ ⊢-weaken inc ys
        Qed)
 
-    ↯-weaken : ∀ {Γ} σ {Δ} (inc : Γ ⊆ Δ) {t T} (r : [ Γ ⊩ σ ] t ↯ T) →
+    ↯-weaken : ∀ {n Γ} (σ : ty n) {Δ} (inc : Γ ⊆ Δ) {t T} (r : [ Γ ⊩ σ ] t ↯ T) →
       [ Δ ⊩ σ ] ⊢-weaken inc t ↯ ⊩-weaken σ inc T
     ↯-weaken `1 inc r = r
+    ↯-weaken (`b k) {Δ} inc {t} {T} r =
+      Proof[ Δ ⊢ `b k ]
+        Δ ⊢ `b k ∋ ⊢-weaken inc t
+        ↝⋆⟨ ↝⋆-weaken inc r ⟩
+        Δ ⊢ `b k ∋ ⊢-weaken inc (back-ne T)
+        ≡⟨ sym (ne-weaken-back inc T) ⟩
+        Δ ⊢ `b k ∋ back-ne (ne-weaken inc T)
+      Qed
     ↯-weaken (σ `× τ) inc (a , b , red , ra , rb) =
       ⊢-weaken inc a ,
       ⊢-weaken inc b ,
@@ -83,7 +92,7 @@ mutual
 
 abstract
 
-  ↯ε-weaken : ∀ {Δ} Γ {Ε} (inc : Δ ⊆ Ε) {ρ R} (rR : [ Δ ⊩ε Γ ] ρ ↯ R) →
+  ↯ε-weaken : ∀ {n Δ} (Γ : Con (ty n)) {Ε} (inc : Δ ⊆ Ε) {ρ R} (rR : [ Δ ⊩ε Γ ] ρ ↯ R) →
       [ Ε ⊩ε Γ ] ⊢ε-weaken Γ inc ρ ↯ ⊩ε-weaken Γ inc R
   ↯ε-weaken ε inc rR = rR
   ↯ε-weaken (Γ ∙ σ) inc (rR , rr) = ↯ε-weaken Γ inc rR , ↯-weaken σ inc rr
@@ -94,14 +103,16 @@ mutual
 
   abstract
 
-    ↯list-upward : ∀ {Γ} σ {s t} (red : Γ ⊢ `list σ ∋ s ↝⋆ t)
+    ↯list-upward : ∀ {n Γ} (σ : ty n) {s t} (red : Γ ⊢ `list σ ∋ s ↝⋆ t)
       {T} (r : [ Γ ⊩ `list σ ] t ↯ T) → [ Γ ⊩ `list σ ] s ↯ T
     ↯list-upward σ red (`[] r) = `[] (▹⋆-trans red r)
     ↯list-upward σ red (rhd `∷ rtl by r) = rhd `∷ rtl by (▹⋆-trans red r)
     ↯list-upward σ red (mappend rf xs rys r) = mappend rf xs rys (▹⋆-trans red r)
 
-    ↯-upward : ∀ {Γ} σ {s t} (red : Γ ⊢ σ ∋ s ↝⋆ t) {T} (r : [ Γ ⊩ σ ] t ↯ T) → [ Γ ⊩ σ ] s ↯ T
+    ↯-upward : ∀ {n Γ} (σ : ty n) {s t} (red : Γ ⊢ σ ∋ s ↝⋆ t)
+      {T} (r : [ Γ ⊩ σ ] t ↯ T) → [ Γ ⊩ σ ] s ↯ T
     ↯-upward `1 red r = r
+    ↯-upward (`b k) red r = ▹⋆-trans red r
     ↯-upward (σ `× τ) red (a , b , r , rab) = a , b , ▹⋆-trans red r , rab
     ↯-upward (σ `→ τ) red r =
       λ inc rx rfx → r inc rx (▹⋆-trans rfx (▹⋆-cong `$₁ (↝⋆-weaken inc red)))
@@ -111,8 +122,9 @@ mutual
 
   abstract
 
-    [_]_↯↓ne : ∀ {Γ} σ (t : Γ ⊢ne σ) → [ Γ ⊩ σ ] back-ne t ↯ ↓[ σ ] t
+    [_]_↯↓ne : ∀ {n Γ} (σ : ty n) (t : Γ ⊢ne σ) → [ Γ ⊩ σ ] back-ne t ↯ ↓[ σ ] t
     [ `1 ] t ↯↓ne = tt
+    [ `b k ] t ↯↓ne = refl
     [ σ `× τ ] t ↯↓ne =
       `π₁ (back-ne t) ,
       `π₂ (back-ne t) ,
@@ -129,8 +141,8 @@ mutual
       mappend (λ {Δ} inc x → ↯-upward σ (step `βλ refl) [ σ ] x ↯↓ne) t (`[] refl)
       (step (`ηmap₁ (back-ne t)) (step (`η++₁ (`map (`λ (`v here!)) (back-ne t))) refl))
 
-    [_]_↝⋆↑list_when_ : ∀ {Γ} σ (t : Γ ⊢ `list σ) (T : Γ ⊩ `list σ) (r : [ Γ ⊩ `list σ ] t ↯ T) →
-      Γ ⊢ `list σ ∋ t ↝⋆ back-nf (↑[ `list σ ] T)
+    [_]_↝⋆↑list_when_ : ∀ {n Γ} (σ : ty n) (t : Γ ⊢ `list σ) (T : Γ ⊩ `list σ)
+      (r : [ Γ ⊩ `list σ ] t ↯ T) → Γ ⊢ `list σ ∋ t ↝⋆ back-nf (↑[ `list σ ] T)
     [ σ ] t ↝⋆↑list `[] when `[] red = red
     [ σ ] t ↝⋆↑list HD `∷ TL when (rhd `∷ rtl by red) =
       ▹⋆-trans red (▹⋆-trans (▹⋆-cong `∷₁ ([ σ ] _ ↝⋆↑ HD when rhd))
@@ -150,9 +162,10 @@ mutual
                       `++ back-nf (↑[ `list σ ] YS)
       Qed
 
-    [_]_↝⋆↑_when_ : ∀ {Γ} σ (t : Γ ⊢ σ) (T : Γ ⊩ σ) (r : [ Γ ⊩ σ ] t ↯ T) →
+    [_]_↝⋆↑_when_ : ∀ {n Γ} (σ : ty n) (t : Γ ⊢ σ) (T : Γ ⊩ σ) (r : [ Γ ⊩ σ ] t ↯ T) →
       Γ ⊢ σ ∋ t ↝⋆ back-nf (↑[ σ ] T)
     [ `1 ] t ↝⋆↑ T when r = step (`η1 t) refl
+    [ `b k ] t ↝⋆↑ T when r = r
     [ σ `× τ ] t ↝⋆↑ A , B when (a , b , red , ra , rb) =
       Proof[ _ ⊢ σ `× τ ]
         _ ⊢ σ `× τ ∋ t
@@ -171,18 +184,18 @@ mutual
 
 abstract
 
-  ↯ε-refl : ∀ Γ → [ Γ ⊩ε Γ ] ⊢ε-refl Γ ↯ ⊩ε-refl Γ
+  ↯ε-refl : ∀ {n} (Γ : Con (ty n)) → [ Γ ⊩ε Γ ] ⊢ε-refl Γ ↯ ⊩ε-refl Γ
   ↯ε-refl ε = tt
   ↯ε-refl (Γ ∙ σ) = ↯ε-weaken Γ (step (same Γ)) (↯ε-refl Γ) , [ σ ] `v here! ↯↓ne
 
 abstract
 
-  get-↯ : ∀ {Γ} σ (pr : σ ∈ Γ) {Δ ρ R} (cR : [ Δ ⊩ε Γ ] ρ ↯ R) →
+  get-↯ : ∀ {n Γ} (σ : ty n) (pr : σ ∈ Γ) {Δ ρ R} (cR : [ Δ ⊩ε Γ ] ρ ↯ R) →
     [ Δ ⊩ σ ] get pr ρ ↯ lookup Γ pr R
   get-↯ σ here! (_ , cr) = cr
   get-↯ σ (there pr) (cR , _) = get-↯ σ pr cR
 
-  vappend-↯ : ∀ {Γ} σ {xs XS} (rxs : [ Γ ⊩ `list σ ] xs ↯ XS)
+  vappend-↯ : ∀ {n Γ} (σ : ty n) {xs XS} (rxs : [ Γ ⊩ `list σ ] xs ↯ XS)
     {ys YS} (rys : [ Γ ⊩ `list σ ] ys ↯ YS) → [ Γ ⊩ `list σ ] xs `++ ys ↯ vappend σ XS YS
   vappend-↯ σ (`[] red) rys = ↯-upward (`list σ) (▹⋆-trans (▹⋆-cong `++₁ red) (step `β++₁ refl)) rys
   vappend-↯ σ (rhd `∷ rtl by red) rys =
@@ -191,14 +204,14 @@ abstract
     mappend rf xs (vappend-↯ σ rys rzs) (▹⋆-trans (▹⋆-cong `++₁ red)
     (step (`η++₂ (`map f (back-ne xs)) ys zs) refl))
 
-  vmap-↯ : ∀ {Γ} σ τ {f} {F : Γ ⊩ σ `→ τ} (rf : [ Γ ⊩ σ `→ τ ] f ↯ F)
+  vmap-↯ : ∀ {n Γ} (σ τ : ty n) {f} {F : Γ ⊩ σ `→ τ} (rf : [ Γ ⊩ σ `→ τ ] f ↯ F)
     {xs XS} (rxs : [ Γ ⊩ `list σ ] xs ↯ XS) → [ Γ ⊩ `list τ ] `map f xs ↯ vmap σ τ F XS
   vmap-↯ σ τ rf (`[] red) = `[] (▹⋆-trans (▹⋆-cong `map₂ red) (step `βmap₁ refl))
-  vmap-↯ {Γ} σ τ {f} rf (_`∷_by_ {hd} rhd {tl} rtl red) =
+  vmap-↯ {Γ = Γ} σ τ {f} rf (_`∷_by_ {hd} rhd {tl} rtl red) =
     rf (same Γ) rhd refl `∷ vmap-↯ σ τ rf rtl by
     ▹⋆-trans (▹⋆-cong `map₂ red) (step `βmap₂
    (≡-step (cong (λ g → (g `$ hd) `∷ `map f tl) (sym (⊢-weaken-refl f))) refl))
-  vmap-↯ {Γ} σ τ {f} rf (mappend {υ} {g} rg xs {ys} rys red) =
+  vmap-↯ {Γ = Γ} σ τ {f} rf (mappend {υ} {g} rg xs {ys} rys red) =
     mappend
     (λ {Δ} inc t → rf inc (rg inc t)
     (Proof[ Δ ⊢ τ ]
@@ -225,17 +238,17 @@ abstract
     (▹⋆-trans (▹⋆-cong `map₂ red) (step (`ηmap₂ (`map g (back-ne xs)) ys)
     (step (`++₁ (`ηmap₃ f g (back-ne xs))) refl)))
 
-  vfold-↯ : ∀ {Γ} σ τ {c} {C : Γ ⊩ σ `→ τ `→ τ} (rc : [ Γ ⊩ σ `→ τ `→ τ ] c ↯ C)
+  vfold-↯ : ∀ {n Γ} (σ τ : ty n) {c} {C : Γ ⊩ σ `→ τ `→ τ} (rc : [ Γ ⊩ σ `→ τ `→ τ ] c ↯ C)
     {n N} (rn : [ Γ ⊩ τ ] n ↯ N) {xs XS} (rxs : [ Γ ⊩ `list σ ] xs ↯ XS) →
     [ Γ ⊩ τ ] `fold c n xs ↯ vfold σ τ C N XS
   vfold-↯ σ τ rc rn (`[] red) =
     ↯-upward τ (▹⋆-trans (▹⋆-cong `fold₃ red) (step `βfold₁ refl)) rn
-  vfold-↯ {Γ} σ τ {c} rc {n} rn (_`∷_by_ {hd} rhd {tl} rtl red) =
+  vfold-↯ {Γ = Γ} σ τ {c} rc {n} rn (_`∷_by_ {hd} rhd {tl} rtl red) =
     rc (same Γ) rhd (≡-step (sym (cong (λ f → f `$ hd) (⊢-weaken-refl c))) refl)
     (same Γ) (vfold-↯ σ τ rc rn rtl) (▹⋆-trans (▹⋆-cong `fold₃ red) (step `βfold₂
     (≡-step (cong₂ (λ c' hd' → c' `$ hd' `$ `fold c n _) (sym (⊢-weaken-refl c))
     (sym (⊢-weaken-refl hd))) refl)))
-  vfold-↯ {Γ} σ τ {c} rc {n} rn {xs} (mappend {υ} {f} rf ys {zs} rzs red) =
+  vfold-↯ {Γ = Γ} σ τ {c} rc {n} rn {xs} (mappend {υ} {f} rf ys {zs} rzs red) =
     ↯-upward τ
     (Proof[ Γ ⊢ τ ]
       Γ ⊢ τ ∋ `fold c n xs
@@ -260,10 +273,10 @@ abstract
     Qed)
     [ τ ] _ ↯↓ne
 
-  eval-↯ : ∀ {Γ} σ (t : Γ ⊢ σ) {Δ ρ R} (cR : [ Δ ⊩ε Γ ] ρ ↯ R) →
+  eval-↯ : ∀ {n Γ} (σ : ty n) (t : Γ ⊢ σ) {Δ ρ R} (cR : [ Δ ⊩ε Γ ] ρ ↯ R) →
     [ Δ ⊩ σ ] subst t ρ ↯ eval t R
   eval-↯ σ (`v pr) cR = get-↯ σ pr cR
-  eval-↯ {Γ} (σ `→ τ) (`λ t) {Δ} {ρ} {R} cR =
+  eval-↯ {Γ = Γ} (σ `→ τ) (`λ t) {Δ} {ρ} {R} cR =
     λ {Ε} inc {x} {X} rx {fx} red →
     let ρ' = ⊢ε-weaken Γ (step (same Δ)) ρ in
     ↯-upward τ
@@ -286,7 +299,7 @@ abstract
       Ε ⊢ τ ∋ subst t (⊢ε-weaken Γ inc ρ , x)
     Qed)
     (eval-↯ τ t (↯ε-weaken Γ inc cR , rx))
-  eval-↯ {Γ} τ (_`$_ {σ} t u) {Δ} {ρ} {R} cR =
+  eval-↯ {Γ = Γ} τ (_`$_ {σ} t u) {Δ} {ρ} {R} cR =
     eval-↯ (σ `→ τ) t cR (same Δ) (eval-↯ σ u cR)
     (Proof[ Δ ⊢ τ ]
        Δ ⊢ τ ∋ subst t ρ `$ subst u ρ
@@ -315,8 +328,8 @@ abstract
 
 abstract
 
-  ↝⋆-norm : ∀ {Γ σ} (t : Γ ⊢ σ) → Γ ⊢ σ ∋ t ↝⋆ norm t
-  ↝⋆-norm {Γ} {σ} t =
+  ↝⋆-norm : ∀ {n Γ} {σ : ty n} (t : Γ ⊢ σ) → Γ ⊢ σ ∋ t ↝⋆ norm t
+  ↝⋆-norm {_} {Γ} {σ} t =
     Proof[ Γ ⊢ σ ]
       Γ ⊢ σ ∋ t
       ≡⟨ sym (subst-refl t) ⟩
@@ -325,7 +338,7 @@ abstract
       Γ ⊢ σ ∋ norm t
     Qed
 
-  soundness : ∀ {Γ σ} {s t : Γ ⊢ σ} (eq : norm s ≡ norm t) → Γ ⊢ σ ∋ s ≅ t
+  soundness : ∀ {n Γ} {σ : ty n} {s t : Γ ⊢ σ} (eq : norm s ≡ norm t) → Γ ⊢ σ ∋ s ≅ t
   soundness {s = s} {t = t} eq =
     ≡⋆-trans (▹≡⋆ (↝⋆-norm s))
    (≡⋆-step eq

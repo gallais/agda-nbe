@@ -1,5 +1,7 @@
 module stlcl.simple.equality where
 
+open import Data.Nat
+open import Data.Fin
 open import Data.Unit
 open import Data.Product
 open import Relation.Binary.PropositionalEquality renaming (subst to coerce ; subst₂ to coerce₂)
@@ -15,7 +17,8 @@ open import stlcl.simple.eval
 
 infix 3 [_]_≣_ [_,_]_≣list≣_ [_]_≣ε_
 
-data [_,_]_≣list≣_ {Γ} σ (Σ : ∀ {Δ} (S T : Δ ⊩ σ) → Set) : (XS YS : Γ ⊩ `list σ) → Set where
+data [_,_]_≣list≣_ {n Γ} (σ : ty n) (Σ : ∀ {Δ} (S T : Δ ⊩ σ) → Set) :
+  (XS YS : Γ ⊩ `list σ) → Set where
   `[] : [ σ , Σ ] `[] ≣list≣ `[]
   _`∷_  : ∀ {X Y} {XS YS : Γ ⊩ `list σ} (hd : Σ X Y) (tl : [ σ , Σ ] XS ≣list≣ YS) →
     [ σ , Σ ] X `∷ XS ≣list≣ Y `∷ YS
@@ -26,25 +29,27 @@ data [_,_]_≣list≣_ {Γ} σ (Σ : ∀ {Δ} (S T : Δ ⊩ σ) → Set) : (XS Y
 
 mutual
 
-  [_]_≣_ : ∀ {Γ} σ (S T : Γ ⊩ σ) → Set
+  [_]_≣_ : ∀ {n Γ} (σ : ty n) (S T : Γ ⊩ σ) → Set
   [ `1 ] S ≣ T = ⊤
+  [ `b k ] S ≣ T = S ≡ T
   [ σ `× τ ] S₁ , S₂ ≣ T₁ , T₂ = [ σ ] S₁ ≣ T₁ × [ τ ] S₂ ≣ T₂
   [ σ `→ τ ] F ≣ G = ∀ {Δ} inc (S : Δ ⊩ σ) (Suni : Uni[ σ ] S) → [ τ ] F inc S ≣ G inc S
   [ `list σ ] XS ≣ YS = [ σ , [_]_≣_ σ ] XS ≣list≣ YS
 
-  Unilist[_]_ : ∀ {Γ} σ (S : Γ ⊩ `list σ) → Set
+  Unilist[_]_ : ∀ {n Γ} (σ : ty n) (S : Γ ⊩ `list σ) → Set
   Unilist[ σ ] `[] = ⊤
   Unilist[ σ ] (HD `∷ XS) = Uni[ σ ] HD × Unilist[ σ ] XS
-  Unilist[_]_ {Γ} σ (mappend {τ} F xs XS) =
+  Unilist[_]_ {Γ = Γ} σ (mappend {τ} F xs XS) =
     ((∀ {Δ} inc t → Uni[ σ ] (F {Δ} inc t)) ×
     (∀ {Δ} {Ε} (i₁ : Δ ⊆ Ε) (i₂ : Γ ⊆ Δ) (t : Δ ⊢ne τ) →
     [ σ ] ⊩-weaken σ i₁ (F i₂ t) ≣ F (⊆-trans i₂ i₁) (ne-weaken i₁ t))) ×
     Unilist[ σ ] XS
 
-  Uni[_]_ : ∀ {Γ} σ (S : Γ ⊩ σ) → Set
+  Uni[_]_ : ∀ {n Γ} (σ : ty n) (S : Γ ⊩ σ) → Set
   Uni[ `1 ] S = ⊤
+  Uni[ `b k ] S = ⊤
   Uni[ σ `× τ ] (A , B) = Uni[ σ ] A × Uni[ τ ] B
-  Uni[_]_ {Γ} (σ `→ τ) F =
+  Uni[_]_ {Γ = Γ} (σ `→ τ) F =
     (∀ {Δ} (inc : Γ ⊆ Δ) (S : Δ ⊩ σ) (Suni : Uni[ σ ] S) → Uni[ τ ] F inc S) ×
     (∀ {Δ} (inc : Γ ⊆ Δ) {S₁ S₂ : Δ ⊩ σ} (Suni₁ : Uni[ σ ] S₁) (Suni₂ : Uni[ σ ] S₂)
        (eq : [ σ ] S₁ ≣ S₂) → [ τ ] F inc S₁ ≣ F inc S₂) ×
@@ -53,11 +58,11 @@ mutual
   Uni[ `list σ ] XS = Unilist[ σ ] XS
 
 
-[_]_≣ε_ : ∀ {Δ} Γ (G R : Δ ⊩ε Γ) → Set
+[_]_≣ε_ : ∀ {n Δ} (Γ : Con (ty n)) (G R : Δ ⊩ε Γ) → Set
 [ ε ] G ≣ε R = ⊤
 [ Γ ∙ σ ] G , g ≣ε R , r = [ Γ ] G ≣ε R × [ σ ] g ≣ r
 
-Uni[_]ε_ : ∀ {Δ} Γ (G : Δ ⊩ε Γ) → Set
+Uni[_]ε_ : ∀ {n Δ} (Γ : Con (ty n)) (G : Δ ⊩ε Γ) → Set
 Uni[ ε ]ε G = ⊤
 Uni[ Γ ∙ σ ]ε (G , g) = Uni[ Γ ]ε G × Uni[ σ ] g
 
@@ -68,13 +73,14 @@ mutual
 
   abstract
 
-    ≣list-refl : ∀ {Γ} σ (XS : Γ ⊩ `list σ) → [ `list σ ] XS ≣ XS
+    ≣list-refl : ∀ {n Γ} (σ : ty n) (XS : Γ ⊩ `list σ) → [ `list σ ] XS ≣ XS
     ≣list-refl σ `[] = `[]
     ≣list-refl σ (HD `∷ TL) = ≣-refl σ HD `∷ ≣list-refl σ TL
     ≣list-refl σ (mappend F xs YS) = mappend (λ _ _ → ≣-refl σ _) refl (≣list-refl σ YS)
 
-    ≣-refl : ∀ {Γ} σ (S : Γ ⊩ σ) → [ σ ] S ≣ S
+    ≣-refl : ∀ {n Γ} (σ : ty n) (S : Γ ⊩ σ) → [ σ ] S ≣ S
     ≣-refl `1 S = tt
+    ≣-refl (`b k) S = refl
     ≣-refl (σ `× τ) (A , B) = ≣-refl σ A , ≣-refl τ B
     ≣-refl (σ `→ τ) F = λ inc S Suni → ≣-refl τ (F inc S)
     ≣-refl (`list σ) XS = ≣list-refl σ XS
@@ -83,13 +89,14 @@ mutual
 
   abstract
 
-    ≣list-sym : ∀ {Γ} σ {S T : Γ ⊩ `list σ} (eq : [ `list σ ] S ≣ T) → [ `list σ ] T ≣ S
+    ≣list-sym : ∀ {n Γ} (σ : ty n) {S T : Γ ⊩ `list σ} (eq : [ `list σ ] S ≣ T) → [ `list σ ] T ≣ S
     ≣list-sym σ `[] = `[]
     ≣list-sym σ (hd `∷ tl) = ≣-sym σ hd `∷ ≣list-sym σ tl
     ≣list-sym σ (mappend F xs YS) = mappend (λ inc t → ≣-sym σ (F inc t)) (sym xs) (≣list-sym σ YS)
 
-    ≣-sym : ∀ {Γ} σ {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) → [ σ ] T ≣ S
+    ≣-sym : ∀ {n Γ} (σ : ty n) {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) → [ σ ] T ≣ S
     ≣-sym `1 eq = tt
+    ≣-sym (`b k) eq = sym eq
     ≣-sym (σ `× τ) (eq₁ , eq₂) = ≣-sym σ eq₁ , ≣-sym τ eq₂
     ≣-sym (σ `→ τ) eq = λ inc S Suni → ≣-sym τ (eq inc S Suni)
     ≣-sym (`list σ) eq = ≣list-sym σ eq
@@ -98,30 +105,33 @@ mutual
 
   abstract
 
-    ≣list-trans : ∀ {Γ} σ {S T U : Γ ⊩ `list σ} (eqST : [ `list σ ] S ≣ T)
+    ≣list-trans : ∀ {n Γ} (σ : ty n) {S T U : Γ ⊩ `list σ} (eqST : [ `list σ ] S ≣ T)
       (eqTU : [ `list σ ] T ≣ U) → [ `list σ ] S ≣ U
     ≣list-trans σ `[] `[] = `[]
     ≣list-trans σ (hd₁ `∷ eqST) (hd₂ `∷ eqTU) = ≣-trans σ hd₁ hd₂ `∷ ≣list-trans σ eqST eqTU
     ≣list-trans σ (mappend F₁ xs₁ eqST) (mappend F₂ xs₂ eqTU) =
       mappend (λ inc t → ≣-trans σ (F₁ inc t) (F₂ inc t)) (trans xs₁ xs₂) (≣list-trans σ eqST eqTU)
 
-    ≣-trans : ∀ {Γ} σ {S T U : Γ ⊩ σ} (eqST : [ σ ] S ≣ T) (eqTU : [ σ ] T ≣ U) → [ σ ] S ≣ U
+    ≣-trans : ∀ {n Γ} (σ : ty n) {S T U : Γ ⊩ σ} (eqST : [ σ ] S ≣ T)
+      (eqTU : [ σ ] T ≣ U) → [ σ ] S ≣ U
     ≣-trans `1 eqST eqTU = tt
+    ≣-trans (`b k) eqST eqTU = trans eqST eqTU
     ≣-trans (σ `× τ) (eqST₁ , eqST₂) (eqTU₁ , eqTU₂) = ≣-trans σ eqST₁ eqTU₁ , ≣-trans τ eqST₂ eqTU₂
     ≣-trans (σ `→ τ) eqST eqTU = λ inc S Suni → ≣-trans τ (eqST inc S Suni) (eqTU inc S Suni)
     ≣-trans (`list σ) eqST eqTU = ≣list-trans σ eqST eqTU
 
 abstract
 
-  ≣ε-refl : ∀ {Δ} Γ (R : Δ ⊩ε Γ) → [ Γ ] R ≣ε R
+  ≣ε-refl : ∀ {n Δ} (Γ : Con (ty n)) (R : Δ ⊩ε Γ) → [ Γ ] R ≣ε R
   ≣ε-refl ε R = tt
   ≣ε-refl (Γ ∙ σ) (G , g) = ≣ε-refl Γ G , ≣-refl σ g
 
-  ≣ε-sym : ∀ {Δ} Γ {G R : Δ ⊩ε Γ} (eq : [ Γ ] G ≣ε R) → [ Γ ] R ≣ε G
+  ≣ε-sym : ∀ {n Δ} (Γ : Con (ty n)) {G R : Δ ⊩ε Γ} (eq : [ Γ ] G ≣ε R) → [ Γ ] R ≣ε G
   ≣ε-sym ε eq = tt
   ≣ε-sym (Γ ∙ σ) (eqGR , eqgr) = ≣ε-sym Γ eqGR , ≣-sym σ eqgr
 
-  ≣ε-trans : ∀ {Δ} Γ {G R V : Δ ⊩ε Γ} (eqGR : [ Γ ] G ≣ε R) (eqRV : [ Γ ] R ≣ε V) → [ Γ ] G ≣ε V
+  ≣ε-trans : ∀ {n Δ} (Γ : Con (ty n)) {G R V : Δ ⊩ε Γ} (eqGR : [ Γ ] G ≣ε R)
+    (eqRV : [ Γ ] R ≣ε V) → [ Γ ] G ≣ε V
   ≣ε-trans ε eqGR eqRV = tt
   ≣ε-trans (Γ ∙ σ) (eqGR , eqgr) (eqRV , eqrv) = ≣ε-trans Γ eqGR eqRV , ≣-trans σ eqgr eqrv
 
@@ -132,30 +142,32 @@ infix  3 _⊩_∋_Qed _⊩ε_∋_Qed
 infixr 2 _⊩_∋_≡⟨_⟩_ _⊩_∋_≣⟨_⟩_ _⊩ε_∋_≡⟨_⟩_ _⊩ε_∋_≣⟨_⟩_
 infix  1 Begin[_⊩_]_ Begin[_⊩ε_]_
 
-Begin[_⊩_]_ : ∀ Γ σ {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) → [ σ ] S ≣ T
+Begin[_⊩_]_ : ∀ {n} Γ (σ : ty n) {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) → [ σ ] S ≣ T
 Begin[ Γ ⊩ σ ] eq = eq
 
-_⊩_∋_≡⟨_⟩_ : ∀ Γ σ S {T U : Γ ⊩ σ} (eq : S ≡ T) (eq' : [ σ ] T ≣ U) → [ σ ] S ≣ U
+_⊩_∋_≡⟨_⟩_ : ∀ {n} Γ (σ : ty n) S {T U : Γ ⊩ σ} (eq : S ≡ T) (eq' : [ σ ] T ≣ U) → [ σ ] S ≣ U
 Γ ⊩ σ ∋ S ≡⟨ refl ⟩ eq = eq
 
-_⊩_∋_≣⟨_⟩_ : ∀ Γ σ (S : Γ ⊩ σ) {T U : Γ ⊩ σ} (eq : [ σ ] S ≣ T) (eq' : [ σ ] T ≣ U) → [ σ ] S ≣ U
+_⊩_∋_≣⟨_⟩_ : ∀ {n} Γ (σ : ty n) (S : Γ ⊩ σ) {T U : Γ ⊩ σ} (eq : [ σ ] S ≣ T)
+  (eq' : [ σ ] T ≣ U) → [ σ ] S ≣ U
 Γ ⊩ σ ∋ S ≣⟨ eq ⟩ eq' = ≣-trans σ eq eq'
 
-_⊩_∋_Qed : ∀ Γ σ (S : Γ ⊩ σ) → [ σ ] S ≣ S
+_⊩_∋_Qed : ∀ {n} Γ (σ : ty n) (S : Γ ⊩ σ) → [ σ ] S ≣ S
 Γ ⊩ σ ∋ S Qed = ≣-refl σ S
 
-Begin[_⊩ε_]_ : ∀ Γ σ {S T : Γ ⊩ε σ} (eq : [ σ ] S ≣ε T) → [ σ ] S ≣ε T
-Begin[ Γ ⊩ε σ ] eq = eq
+Begin[_⊩ε_]_ : ∀ {n} (Δ Γ : Con (ty n)) {S T : Δ ⊩ε Γ} (eq : [ Γ ] S ≣ε T) → [ Γ ] S ≣ε T
+Begin[ Δ ⊩ε Γ ] eq = eq
 
-_⊩ε_∋_≡⟨_⟩_ : ∀ Γ σ S {T U : Γ ⊩ε σ} (eq : S ≡ T) (eq' : [ σ ] T ≣ε U) → [ σ ] S ≣ε U
-Γ ⊩ε σ ∋ S ≡⟨ refl ⟩ eq = eq
+_⊩ε_∋_≡⟨_⟩_ : ∀ {n} (Δ Γ : Con (ty n)) S {T U : Δ ⊩ε Γ} (eq : S ≡ T)
+  (eq' : [ Γ ] T ≣ε U) → [ Γ ] S ≣ε U
+Δ ⊩ε Γ ∋ S ≡⟨ refl ⟩ eq = eq
 
-_⊩ε_∋_≣⟨_⟩_ : ∀ Γ σ (S : Γ ⊩ε σ) {T U : Γ ⊩ε σ} (eq : [ σ ] S ≣ε T) (eq' : [ σ ] T ≣ε U) →
-   [ σ ] S ≣ε U
-Γ ⊩ε σ ∋ S ≣⟨ eq ⟩ eq' = ≣ε-trans σ eq eq'
+_⊩ε_∋_≣⟨_⟩_ : ∀ {n} (Δ Γ : Con (ty n)) S {T U : Δ ⊩ε Γ}
+  (eq : [ Γ ] S ≣ε T) (eq' : [ Γ ] T ≣ε U) → [ Γ ] S ≣ε U
+Δ ⊩ε Γ ∋ S ≣⟨ eq ⟩ eq' = ≣ε-trans Γ eq eq'
 
-_⊩ε_∋_Qed : ∀ Γ σ (S : Γ ⊩ε σ) → [ σ ] S ≣ε S
-Γ ⊩ε σ ∋ S Qed = ≣ε-refl σ S
+_⊩ε_∋_Qed : ∀ {n} (Δ Γ : Con (ty n)) (S : Δ ⊩ε Γ) → [ Γ ] S ≣ε S
+Δ ⊩ε Γ ∋ S Qed = ≣ε-refl Γ S
 
 {- Weakening fusion laws for semantical objects -}
 
@@ -163,16 +175,17 @@ mutual
 
   abstract
 
-    ≣list-weaken : ∀ {Γ Δ} σ {S T : Γ ⊩ `list σ} (inc : Γ ⊆ Δ) (eq : [ `list σ ] S ≣ T) →
-      [ `list σ ] ⊩-weaken (`list σ) inc S ≣ ⊩-weaken (`list σ) inc T
+    ≣list-weaken : ∀ {n Γ Δ} (σ : ty n) {S T : Γ ⊩ `list σ} (inc : Γ ⊆ Δ)
+      (eq : [ `list σ ] S ≣ T) → [ `list σ ] ⊩-weaken (`list σ) inc S ≣ ⊩-weaken (`list σ) inc T
     ≣list-weaken σ inc `[] = `[]
     ≣list-weaken σ inc (hd `∷ eq) = ≣-weaken σ inc hd `∷ ≣list-weaken σ inc eq
     ≣list-weaken σ inc (mappend F refl eq) =
       mappend (λ inc' t → F (⊆-trans inc inc') t) refl (≣list-weaken σ inc eq)
 
-    ≣-weaken : ∀ {Γ Δ} σ {S T : Γ ⊩ σ} (inc : Γ ⊆ Δ) (eq : [ σ ] S ≣ T) →
+    ≣-weaken : ∀ {n Γ Δ} (σ : ty n) {S T : Γ ⊩ σ} (inc : Γ ⊆ Δ) (eq : [ σ ] S ≣ T) →
       [ σ ] ⊩-weaken σ inc S ≣ ⊩-weaken σ inc T
     ≣-weaken `1 inc eq = eq
+    ≣-weaken (`b k) inc refl = refl
     ≣-weaken (σ `× τ) inc (eq₁ , eq₂) = ≣-weaken σ inc eq₁ , ≣-weaken τ inc eq₂
     ≣-weaken (σ `→ τ) inc eq = λ inc' S Suni → eq (⊆-trans inc inc') S Suni
     ≣-weaken (`list σ) inc eq = ≣list-weaken σ inc eq
@@ -181,7 +194,8 @@ mutual
 
   abstract
 
-    ≣list-weaken-refl : ∀ {Γ} σ (S : Γ ⊩ `list σ) → [ `list σ ] S ≣ ⊩-weaken (`list σ) (same _) S
+    ≣list-weaken-refl : ∀ {n Γ} (σ : ty n) (S : Γ ⊩ `list σ) →
+      [ `list σ ] S ≣ ⊩-weaken (`list σ) (same _) S
     ≣list-weaken-refl σ `[] = `[]
     ≣list-weaken-refl σ (HD `∷ TL) = ≣-weaken-refl σ HD `∷ ≣list-weaken-refl σ TL
     ≣list-weaken-refl σ (mappend F xs YS) =
@@ -194,8 +208,9 @@ mutual
         Qed)
       (sym (ne-weaken-refl xs)) (≣list-weaken-refl σ YS)
 
-    ≣-weaken-refl : ∀ {Γ} σ (S : Γ ⊩ σ) → [ σ ] S ≣ ⊩-weaken σ (same _) S
+    ≣-weaken-refl : ∀ {n Γ} (σ : ty n) (S : Γ ⊩ σ) → [ σ ] S ≣ ⊩-weaken σ (same _) S
     ≣-weaken-refl `1 S = tt
+    ≣-weaken-refl (`b k) S = sym (ne-weaken-refl S)
     ≣-weaken-refl (σ `× τ) (A , B) = ≣-weaken-refl σ A , ≣-weaken-refl τ B
     ≣-weaken-refl (σ `→ τ) F =
       λ inc S Suni → coerce (λ pr → [ τ ] F inc S ≣ F pr S) (sym (⊆-same-l inc))
@@ -206,7 +221,7 @@ mutual
 
   abstract
 
-    ≣list-weaken² : ∀ σ {Γ Δ} (inc : Γ ⊆ Δ) {Ε} (inc' : Δ ⊆ Ε) (S : Γ ⊩ `list σ) →
+    ≣list-weaken² : ∀ {n} (σ : ty n) {Γ Δ} (inc : Γ ⊆ Δ) {Ε} (inc' : Δ ⊆ Ε) (S : Γ ⊩ `list σ) →
       [ `list σ ] ⊩-weaken (`list σ) inc' (⊩-weaken (`list σ) inc S) 
       ≣ ⊩-weaken (`list σ) (⊆-trans inc inc') S
     ≣list-weaken² σ inc inc' `[] = `[]
@@ -221,9 +236,10 @@ mutual
       Qed)
       (ne-weaken² inc inc' xs) (≣list-weaken² σ inc inc' YS)
 
-    ≣-weaken² : ∀ σ {Γ Δ} (inc : Γ ⊆ Δ) {Ε} (inc' : Δ ⊆ Ε) (S : Γ ⊩ σ) →
+    ≣-weaken² : ∀ {n} (σ : ty n) {Γ Δ} (inc : Γ ⊆ Δ) {Ε} (inc' : Δ ⊆ Ε) (S : Γ ⊩ σ) →
       [ σ ] ⊩-weaken σ inc' (⊩-weaken σ inc S) ≣ ⊩-weaken σ (⊆-trans inc inc') S
     ≣-weaken² `1 inc inc' S = tt
+    ≣-weaken² (`b k) inc inc' S = ne-weaken² inc inc' S
     ≣-weaken² (σ `× τ) inc inc' (A , B) = ≣-weaken² σ inc inc' A , ≣-weaken² τ inc inc' B
     ≣-weaken² (σ `→ τ) inc inc' F =
       λ {Ε} inc'' S Suni →
@@ -236,16 +252,16 @@ mutual
 
 abstract
 
-  ≣ε-weaken : ∀ {Δ Ε} Γ {G R : Δ ⊩ε Γ} (inc : Δ ⊆ Ε) (eq : [ Γ ] G ≣ε R) →
+  ≣ε-weaken : ∀ {n Δ Ε} (Γ : Con (ty n)) {G R : Δ ⊩ε Γ} (inc : Δ ⊆ Ε) (eq : [ Γ ] G ≣ε R) →
       [ Γ ] ⊩ε-weaken Γ inc G ≣ε ⊩ε-weaken Γ inc R
   ≣ε-weaken ε inc eq = eq
   ≣ε-weaken (Γ ∙ σ) inc (eqGR , eqgr) = ≣ε-weaken Γ inc eqGR , ≣-weaken σ inc eqgr
 
-  ≣ε-weaken-refl : ∀ {Δ} Γ (R : Δ ⊩ε Γ) → [ Γ ] R ≣ε ⊩ε-weaken Γ (same _) R
+  ≣ε-weaken-refl : ∀ {n Δ} (Γ : Con (ty n)) (R : Δ ⊩ε Γ) → [ Γ ] R ≣ε ⊩ε-weaken Γ (same _) R
   ≣ε-weaken-refl ε R = R
   ≣ε-weaken-refl (Γ ∙ σ) (R , r) = ≣ε-weaken-refl Γ R , ≣-weaken-refl σ r
 
-  ≣ε-weaken² : ∀ Γ {Δ Ε} (inc : Δ ⊆ Ε) {Φ} (inc' : Ε ⊆ Φ) (R : Δ ⊩ε Γ) →
+  ≣ε-weaken² : ∀ {n} Γ {Δ Ε : Con (ty n)} (inc : Δ ⊆ Ε) {Φ} (inc' : Ε ⊆ Φ) (R : Δ ⊩ε Γ) →
       [ Γ ] ⊩ε-weaken Γ inc' (⊩ε-weaken Γ inc R) ≣ε ⊩ε-weaken Γ (⊆-trans inc inc') R
   ≣ε-weaken² ε inc inc' R = R
   ≣ε-weaken² (Γ ∙ σ) inc inc' (R , r) = ≣ε-weaken² Γ inc inc' R , ≣-weaken² σ inc inc' r
@@ -256,8 +272,8 @@ mutual
 
   abstract
 
-    Unilist-weaken : ∀ {Γ Δ} σ (inc : Γ ⊆ Δ) (S : Γ ⊩ `list σ) (Suni : Uni[ `list σ ] S) →
-      Uni[ `list σ ] ⊩-weaken (`list σ) inc S
+    Unilist-weaken : ∀ {n Γ Δ} (σ : ty n) (inc : Γ ⊆ Δ) (S : Γ ⊩ `list σ)
+      (Suni : Uni[ `list σ ] S) → Uni[ `list σ ] ⊩-weaken (`list σ) inc S
     Unilist-weaken σ inc (`[]) Suni = Suni
     Unilist-weaken σ inc (HD `∷ S) (HDuni , Suni) =
       Uni-weaken σ inc HDuni , Unilist-weaken σ inc S Suni
@@ -273,9 +289,10 @@ mutual
       Qed)) ,
       Unilist-weaken σ inc S Suni
 
-    Uni-weaken : ∀ {Γ Δ} σ (inc : Γ ⊆ Δ) {S : Γ ⊩ σ} (Suni : Uni[ σ ] S) →
+    Uni-weaken : ∀ {n Γ Δ} (σ : ty n) (inc : Γ ⊆ Δ) {S : Γ ⊩ σ} (Suni : Uni[ σ ] S) →
       Uni[ σ ] ⊩-weaken σ inc S
     Uni-weaken `1 inc Suni = Suni
+    Uni-weaken (`b k) inc Suni = Suni
     Uni-weaken (σ `× τ) inc (Auni , Buni) = Uni-weaken σ inc Auni , Uni-weaken τ inc Buni
     Uni-weaken (σ `→ τ) inc {F} (h₁ , h₂ , h₃) =
       (λ inc' → h₁ (⊆-trans inc inc')) ,
@@ -294,7 +311,7 @@ mutual
 
 abstract
 
-  Uniε-weaken : ∀ {Δ Ε} Γ (inc : Δ ⊆ Ε) {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) →
+  Uniε-weaken : ∀ {n Δ Ε} (Γ : Con (ty n)) (inc : Δ ⊆ Ε) {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) →
       Uni[ Γ ]ε ⊩ε-weaken Γ inc R
   Uniε-weaken ε inc Runi = Runi
   Uniε-weaken (Γ ∙ σ) inc (Runi , runi) = Uniε-weaken Γ inc Runi , Uni-weaken σ inc runi
@@ -303,13 +320,14 @@ abstract
 
 abstract
 
-  weaken-↓list : ∀ {Γ Δ} σ (inc : Γ ⊆ Δ) (t : Γ ⊢ne `list σ) →
+  weaken-↓list : ∀ {n Γ Δ} (σ : ty n) (inc : Γ ⊆ Δ) (t : Γ ⊢ne `list σ) →
     [ `list σ ] ⊩-weaken (`list σ) inc (↓[ `list σ ] t) ≣ ↓[ `list σ ] ne-weaken inc t
   weaken-↓list σ inc t = mappend (λ _ t → ≣-refl σ (↓[ σ ] t)) refl (≣-refl (`list σ) `[])
 
-  weaken-↓ : ∀ {Γ Δ} σ (inc : Γ ⊆ Δ) (t : Γ ⊢ne σ) →
+  weaken-↓ : ∀ {n Γ Δ} (σ : ty n) (inc : Γ ⊆ Δ) (t : Γ ⊢ne σ) →
     [ σ ] ⊩-weaken σ inc (↓[ σ ] t) ≣ ↓[ σ ] ne-weaken inc t
   weaken-↓ `1 inc t = tt
+  weaken-↓ (`b k) inc t = refl
   weaken-↓ (σ `× τ) inc t = weaken-↓ σ inc (`π₁ t) , weaken-↓ τ inc (`π₂ t)
   weaken-↓ (σ `→ τ) inc t =
     λ {Ε} inc' S Suni →
@@ -324,7 +342,7 @@ abstract
 
 abstract
 
-  Uniε-purge : ∀ {Γ Δ} (inc : Γ ⊆ Δ) {Ε} {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) →
+  Uniε-purge : ∀ {n} {Γ Δ : Con (ty n)} (inc : Γ ⊆ Δ) {Ε} {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) →
     Uni[ Γ ]ε (⊩ε-purge inc R)
   Uniε-purge base Runi = Runi
   Uniε-purge (step inc) (Runi , runi) = Uniε-purge inc Runi
@@ -332,26 +350,28 @@ abstract
 
 abstract
 
-  Uni-lookup : ∀ {Γ Δ σ} (pr : σ ∈ Γ) {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) → Uni[ σ ] (lookup Γ pr R)
+  Uni-lookup : ∀ {n Γ Δ} {σ : ty n} (pr : σ ∈ Γ) {R : Δ ⊩ε Γ}
+    (Runi : Uni[ Γ ]ε R) → Uni[ σ ] (lookup Γ pr R)
   Uni-lookup here! (_ , runi) = runi
   Uni-lookup (there pr) (Runi , _) = Uni-lookup pr Runi
 
-  ≣-lookup : ∀ {Γ Δ σ} (pr : σ ∈ Γ) {R₁ : Δ ⊩ε Γ} {R₂ : Δ ⊩ε Γ}
+  ≣-lookup : ∀ {n Γ Δ} {σ : ty n} (pr : σ ∈ Γ) {R₁ : Δ ⊩ε Γ} {R₂ : Δ ⊩ε Γ}
     (eqR₁R₂ : [ Γ ] R₁ ≣ε R₂) → [ σ ] lookup Γ pr R₁ ≣ lookup Γ pr R₂
   ≣-lookup here! (_ , eqr₁r₂) = eqr₁r₂
   ≣-lookup (there pr) (eqR₁R₂ , _) = ≣-lookup pr eqR₁R₂
 
-  weaken-lookup : ∀ {σ Γ Δ Ε} (inc : Δ ⊆ Ε) (pr : σ ∈ Γ) (R : Δ ⊩ε Γ) →
+  weaken-lookup : ∀ {n Γ Δ Ε} {σ : ty n} (inc : Δ ⊆ Ε) (pr : σ ∈ Γ) (R : Δ ⊩ε Γ) →
     [ σ ] ⊩-weaken σ inc (lookup Γ pr R) ≣ lookup Γ pr (⊩ε-weaken Γ inc R)
-  weaken-lookup {σ} inc here! (_ , r) = ≣-refl σ _
+  weaken-lookup {σ = σ} inc here! (_ , r) = ≣-refl σ _
   weaken-lookup inc (there pr) (R , _) = weaken-lookup inc pr R
 
 mutual
 
   abstract
 
-    Uni-ne : ∀ σ {Γ} (t : Γ ⊢ne σ) → Uni[ σ ] ↓[ σ ] t
+    Uni-ne : ∀ {n} (σ : ty n) {Γ} (t : Γ ⊢ne σ) → Uni[ σ ] ↓[ σ ] t
     Uni-ne `1 t = tt
+    Uni-ne (`b k) t = tt
     Uni-ne (σ `× τ) t = Uni-ne σ (`π₁ t) , Uni-ne τ (`π₂ t)
     Uni-ne (σ `→ τ) t =
       (λ inc S Suni → Uni-ne τ (ne-weaken inc t `$ (↑[ σ ] S))) ,
@@ -374,7 +394,7 @@ mutual
       (λ i₁ i₂ t' → weaken-↓ σ i₁ t')) ,
       tt
 
-    ≣list≡nf : ∀ {Γ} σ {S T : Γ ⊩ `list σ} (eq : [ `list σ ] S ≣ T) →
+    ≣list≡nf : ∀ {n Γ} (σ : ty n) {S T : Γ ⊩ `list σ} (eq : [ `list σ ] S ≣ T) →
       ↑[ `list σ ] S ≡ ↑[ `list σ ] T
     ≣list≡nf σ `[] = refl
     ≣list≡nf σ (hd `∷ tl) = cong₂ _`∷_ (≣≡nf σ hd) (≣list≡nf σ tl)
@@ -384,13 +404,15 @@ mutual
         xs
         (≣list≡nf σ YS)
 
-    ≣≡nf : ∀ {Γ} σ {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) → ↑[ σ ] S ≡ ↑[ σ ] T
+    ≣≡nf : ∀ {n Γ} (σ : ty n) {S T : Γ ⊩ σ} (eq : [ σ ] S ≣ T) → ↑[ σ ] S ≡ ↑[ σ ] T
     ≣≡nf `1 eq = refl
+    ≣≡nf (`b k) refl = refl
     ≣≡nf (σ `× τ) (Aeq , Beq) = cong₂ _`,_ (≣≡nf σ Aeq) (≣≡nf τ Beq)
     ≣≡nf (σ `→ τ) eq = cong `λ (≣≡nf τ (eq (step (same _)) (↓[ σ ] `v here!) (Uni-ne σ (`v here!))))
     ≣≡nf (`list σ) eq = ≣list≡nf σ eq
 
-    weaken-↑list : ∀ σ {Γ Δ} (inc : Γ ⊆ Δ) (S : Γ ⊩ `list σ) (Suni : Uni[ `list σ ] S) →
+    weaken-↑list : ∀ {n} (σ : ty n) {Γ Δ} (inc : Γ ⊆ Δ) (S : Γ ⊩ `list σ)
+      (Suni : Uni[ `list σ ] S) →
       ↑[ `list σ ] (⊩-weaken (`list σ) inc S) ≡ nf-weaken inc (↑[ `list σ ] S)
     weaken-↑list σ inc `[] Suni = refl
     weaken-↑list σ inc (HD `∷ TL) (HDuni , TLuni) =
@@ -408,9 +430,10 @@ mutual
         (weaken-↑ σ (pop! inc) (Funi₁ (step (same _)) (`v here!))))
       (weaken-↑list σ inc YS YSuni)
 
-    weaken-↑ : ∀ σ {Γ Δ} (inc : Γ ⊆ Δ) {S : Γ ⊩ σ} (Suni : Uni[ σ ] S) →
+    weaken-↑ : ∀ {n} (σ : ty n) {Γ Δ} (inc : Γ ⊆ Δ) {S : Γ ⊩ σ} (Suni : Uni[ σ ] S) →
       ↑[ σ ] (⊩-weaken σ inc S) ≡ nf-weaken inc (↑[ σ ] S)
     weaken-↑ `1 inc Suni = refl
+    weaken-↑ (`b k) inc Suni = refl
     weaken-↑ (σ `× τ) inc (Auni , Buni) = cong₂ _`,_ (weaken-↑ σ inc Auni) (weaken-↑ τ inc Buni)
     weaken-↑ (σ `→ τ) {Γ} {Δ} inc {S} (h₁ , h₂ , h₃) =
       cong `λ
@@ -431,7 +454,7 @@ mutual
 
 abstract
 
-  Uni-⊩ε-refl : ∀ Γ → Uni[ Γ ]ε ⊩ε-refl Γ
+  Uni-⊩ε-refl : ∀ {n} (Γ : Con (ty n)) → Uni[ Γ ]ε ⊩ε-refl Γ
   Uni-⊩ε-refl ε = tt
   Uni-⊩ε-refl (Γ ∙ σ) = Uniε-weaken Γ (step (same Γ)) (Uni-⊩ε-refl Γ) , Uni-ne σ (`v here!)
 
@@ -441,14 +464,14 @@ mutual
 
 {- evaluation in uniform environments produces uniform values -}
 
-    Uni-vappend : ∀ {Γ} σ (XS : Γ ⊩ `list σ) {YS : Γ ⊩ `list σ} (XSuni : Uni[ `list σ ] XS)
-      (YSuni : Uni[ `list σ ] YS) → Uni[ `list σ ] vappend σ XS YS
+    Uni-vappend : ∀ {n Γ} (σ : ty n) (XS : Γ ⊩ `list σ) {YS : Γ ⊩ `list σ}
+      (XSuni : Uni[ `list σ ] XS) (YSuni : Uni[ `list σ ] YS) → Uni[ `list σ ] vappend σ XS YS
     Uni-vappend σ `[] XSuni YSuni = YSuni
     Uni-vappend σ (HD `∷ XS) (HDuni , XSuni) YSuni = HDuni , Uni-vappend σ XS XSuni YSuni
     Uni-vappend σ (mappend F xs YS) (Funi , YSuni) ZSuni =
       Funi , Uni-vappend σ YS YSuni ZSuni
 
-    Uni-vmap : ∀ {Γ} σ {τ} {F : Γ ⊩ σ `→ τ} (Funi : Uni[ σ `→ τ ] F)
+    Uni-vmap : ∀ {n Γ} σ {τ : ty n} {F : Γ ⊩ σ `→ τ} (Funi : Uni[ σ `→ τ ] F)
       (XS : Γ ⊩ `list σ) (XSuni : Uni[ `list σ ] XS) → Uni[ `list τ ] vmap σ τ F XS
     Uni-vmap σ Funi `[] XSuni = XSuni
     Uni-vmap σ (h₁ , h₂ , h₃) (HD `∷ TL) (HDuni , TLuni) =
@@ -466,21 +489,22 @@ mutual
         Qed)) ,
       Uni-vmap σ (h₁ , h₂ , h₃) YS YSuni
 
-    Uni-vfold : ∀ {Γ} σ τ {C : Γ ⊩ σ `→ τ `→ τ} (Cuni : Uni[ σ `→ τ `→ τ ] C)
+    Uni-vfold : ∀ {n Γ} (σ τ : ty n) {C : Γ ⊩ σ `→ τ `→ τ} (Cuni : Uni[ σ `→ τ `→ τ ] C)
       {N : Γ ⊩ τ} (Nuni : Uni[ τ ] N) (XS : Γ ⊩ `list σ) (XSuni : Uni[ `list σ ] XS) →
       Uni[ τ ] vfold σ τ C N XS
     Uni-vfold σ τ Cuni Nuni `[] XSuni = Nuni
-    Uni-vfold {Γ} σ τ {C} (h₁ , h₂ , h₃) {N} Nuni (HD `∷ TL) (HDuni , TLuni) =
+    Uni-vfold {Γ = Γ} σ τ {C} (h₁ , h₂ , h₃) {N} Nuni (HD `∷ TL) (HDuni , TLuni) =
       proj₁ (h₁ (same Γ) HD HDuni) (same _) (vfold σ τ C N TL)
       (Uni-vfold σ τ (h₁ , h₂ , h₃) Nuni TL TLuni)
-    Uni-vfold {Γ} σ τ {C} Cuni {N} Nuni (mappend F xs YS) XSuni =
+    Uni-vfold {Γ = Γ} σ τ {C} Cuni {N} Nuni (mappend F xs YS) XSuni =
       Uni-ne τ (`fold (`λ (`λ (↑[ τ ] C (step (step (⊆-refl Γ)))
         (F (step (step (⊆-refl Γ))) (`v (there here!)))
         (pop! (pop! (⊆-refl Γ))) (↓[ τ ] `v here!)))) (↑[ τ ] vfold σ τ C N YS) xs)
 
-    Uni-eval : ∀ {σ Γ Δ} (t : Γ ⊢ σ) {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) → Uni[ σ ] (eval t R)
+    Uni-eval : ∀ {n Γ Δ} {σ : ty n} (t : Γ ⊢ σ) {R : Δ ⊩ε Γ}
+      (Runi : Uni[ Γ ]ε R) → Uni[ σ ] (eval t R)
     Uni-eval (`v pr) Runi = Uni-lookup pr Runi
-    Uni-eval {σ `→ τ} {Γ} {Δ} (`λ t) {R} Runi =
+    Uni-eval {_} {Γ} {Δ} {σ `→ τ} (`λ t) {R} Runi =
       (λ inc S Suni → Uni-eval t (Uniε-weaken Γ inc Runi , Suni)) ,
       (λ inc Suni₁ Suni₂ eqS₁S₂ →
          let Runi' = Uniε-weaken Γ inc Runi in
@@ -506,7 +530,7 @@ mutual
     Uni-eval (`π₂ p) Runi = proj₂ (Uni-eval p Runi)
     Uni-eval `[] Runi = tt
     Uni-eval (hd `∷ tl) Runi = Uni-eval hd Runi , Uni-eval tl Runi
-    Uni-eval {`list σ} (xs `++ ys) {R} Runi =
+    Uni-eval {σ = `list σ} (xs `++ ys) {R} Runi =
       Uni-vappend σ (eval xs R) (Uni-eval xs Runi) (Uni-eval ys Runi)
     Uni-eval (`map {σ} f xs) {R} Runi = Uni-vmap σ (Uni-eval f Runi) (eval xs R) (Uni-eval xs Runi)
     Uni-eval (`fold {σ} {τ} c n xs) {R} Runi =
@@ -516,19 +540,19 @@ mutual
 {- evaluation in semantically equivalent environments produces
    semantically equivalent values -}
 
-    ≣-vappend : ∀ {Γ} σ {XS₁ XS₂ : Γ ⊩ `list σ} (eqXS₁XS₂ : [ `list σ ] XS₁ ≣ XS₂)
+    ≣-vappend : ∀ {n Γ} (σ : ty n) {XS₁ XS₂ : Γ ⊩ `list σ} (eqXS₁XS₂ : [ `list σ ] XS₁ ≣ XS₂)
       {YS₁ YS₂ : Γ ⊩ `list σ} (eqYS₁YS₂ : [ `list σ ] YS₁ ≣ YS₂) →
       [ `list σ ] vappend σ XS₁ YS₁ ≣ vappend σ XS₂ YS₂
     ≣-vappend σ `[] eqYS₁YS₂ = eqYS₁YS₂
     ≣-vappend σ (hd `∷ tl) eqYS₁YS₂ = hd `∷ ≣-vappend σ tl eqYS₁YS₂
     ≣-vappend σ (mappend F xs eqXS₁XS₂) eqYS₁YS₂ = mappend F xs (≣-vappend σ eqXS₁XS₂ eqYS₁YS₂)
 
-    ≣-vmap : ∀ {Γ} σ τ {F₁ F₂ : Γ ⊩ σ `→ τ} (Funi₁ : Uni[ σ `→ τ ] F₁)
+    ≣-vmap : ∀ {n Γ} (σ τ : ty n) {F₁ F₂ : Γ ⊩ σ `→ τ} (Funi₁ : Uni[ σ `→ τ ] F₁)
       (eqF₁F₂ : [ σ `→ τ ] F₁ ≣ F₂) {XS₁ XS₂ : Γ ⊩ `list σ} (XSuni₁ : Uni[ `list σ ] XS₁)
       (XSuni₂ : Uni[ `list σ ] XS₂) (eqXS₁XS₂ : [ `list σ ] XS₁ ≣ XS₂) →
       [ `list τ ] vmap σ τ F₁ XS₁ ≣ vmap σ τ F₂ XS₂
     ≣-vmap σ τ Funi₁ eqF₁F₂ XSuni₁ XSuni₂ `[] = `[]
-    ≣-vmap {Γ} σ τ {F₁} {F₂} (h₁ , h₂ , h₃) eqF₁F₂ {X₁ `∷ XS₁} {X₂ `∷ XS₂}
+    ≣-vmap {_} {Γ} σ τ {F₁} {F₂} (h₁ , h₂ , h₃) eqF₁F₂ {X₁ `∷ XS₁} {X₂ `∷ XS₂}
       (Xuni₁ , XSuni₁) (Xuni₂ , XSuni₂) (hd `∷ tl) =
       (Begin[ Γ ⊩ τ ]
         Γ ⊩ τ ∋ F₁ (⊆-refl Γ) X₁
@@ -550,14 +574,14 @@ mutual
         Qed)
       xs (≣-vmap σ τ (h₁ , h₂ , h₃) eqF₁F₂ YSuni₁ YSuni₂ eqYS₁YS₂)
 
-    ≣-vfold : ∀ {Γ} σ τ {C₁ C₂ : Γ ⊩ σ `→ τ `→ τ} (Cuni₁ : Uni[ σ `→ τ `→ τ ] C₁)
+    ≣-vfold : ∀ {n Γ} (σ τ : ty n) {C₁ C₂ : Γ ⊩ σ `→ τ `→ τ} (Cuni₁ : Uni[ σ `→ τ `→ τ ] C₁)
       (Cuni₂ : Uni[ σ `→ τ `→ τ ] C₂) (eqC₁C₂ : [ σ `→ τ `→ τ ] C₁ ≣ C₂) {N₁ N₂ : Γ ⊩ τ}
       (Nuni₁ : Uni[ τ ] N₁) (Nuni₂ : Uni[ τ ] N₂) (eqN₁N₂ : [ τ ] N₁ ≣ N₂)
       {XS₁ XS₂ : Γ ⊩ `list σ} (XSuni₁ : Uni[ `list σ ] XS₁) (XSuni₂ : Uni[ `list σ ] XS₂)
       (eqXS₁XS₂ : [ `list σ ] XS₁ ≣ XS₂) →
       [ τ ] vfold σ τ C₁ N₁ XS₁ ≣ vfold σ τ C₂ N₂ XS₂
     ≣-vfold σ τ Cuni₁ Cuni₂ eqC₁C₂ Nuni₁ Nuni₂ eqN₁N₂ XSuni₁ XSuni₂ `[] = eqN₁N₂
-    ≣-vfold {Γ} σ τ {C₁} {C₂} (h₁ , h₂ , h₃) Cuni₂ eqC₁C₂ {N₁} {N₂} Nuni₁ Nuni₂ eqN₁N₂
+    ≣-vfold {Γ = Γ} σ τ {C₁} {C₂} (h₁ , h₂ , h₃) Cuni₂ eqC₁C₂ {N₁} {N₂} Nuni₁ Nuni₂ eqN₁N₂
       {X₁ `∷ XS₁} {X₂ `∷ XS₂} (Xuni₁ , XSuni₁) (Xuni₂ , XSuni₂) (hd `∷ tl) =
       let Uni-vfold₁ = Uni-vfold σ τ (h₁ , h₂ , h₃) Nuni₁ XS₁ XSuni₁
           Uni-vfold₂ = Uni-vfold σ τ Cuni₂ Nuni₂ XS₂ XSuni₂
@@ -571,7 +595,7 @@ mutual
         ≣⟨ eqC₁C₂ (same Γ) X₂ Xuni₂ (same Γ) (vfold σ τ C₂ N₂ XS₂) Uni-vfold₂ ⟩
         Γ ⊩ τ ∋ C₂ (⊆-refl Γ) X₂ (⊆-refl Γ) (vfold σ τ C₂ N₂ XS₂)
       Qed 
-    ≣-vfold {Γ} σ τ {C₁} {C₂} (h₁ , h₂ , h₃) Cuni₂ eqC₁C₂ {N₁} {N₂} Nuni₁ Nuni₂ eqN₁N₂
+    ≣-vfold {Γ = Γ} σ τ {C₁} {C₂} (h₁ , h₂ , h₃) Cuni₂ eqC₁C₂ {N₁} {N₂} Nuni₁ Nuni₂ eqN₁N₂
       {mappend F₁ xs YS₁} {mappend F₂ .xs YS₂} (Funi₁ , YSuni₁) (Funi₂ , YSuni₂) (mappend F refl YS) =
       let ind-hypo = ≣-vfold σ τ (h₁ , h₂ , h₃) Cuni₂ eqC₁C₂ Nuni₁ Nuni₂ eqN₁N₂ YSuni₁ YSuni₂ YS in
       Begin[ Γ ⊩ τ ]
@@ -589,15 +613,15 @@ mutual
         Γ ⊩ τ ∋ _
       Qed
 
-    ≣-eval : ∀ {Γ Δ σ} (t : Γ ⊢ σ) {R₁ : Δ ⊩ε Γ} (Runi₁ : Uni[ Γ ]ε R₁)
+    ≣-eval : ∀ {n Γ Δ} {σ : ty n} (t : Γ ⊢ σ) {R₁ : Δ ⊩ε Γ} (Runi₁ : Uni[ Γ ]ε R₁)
       {R₂ : Δ ⊩ε Γ} (Runi₂ : Uni[ Γ ]ε R₂) (eqR₁R₂ : [ Γ ] R₁ ≣ε R₂) →
       [ σ ] eval t R₁ ≣ eval t R₂
     ≣-eval (`v pr) Runi₁ Runi₂ eqR₁R₂ = ≣-lookup pr eqR₁R₂
-    ≣-eval {Γ} {Δ} {σ `→ τ} (`λ t) Runi₁ Runi₂ eqR₁R₂ =
+    ≣-eval {_} {Γ} {Δ} {σ `→ τ} (`λ t) Runi₁ Runi₂ eqR₁R₂ =
       λ inc S Suni →
         ≣-eval t (Uniε-weaken Γ inc Runi₁ , Suni) (Uniε-weaken Γ inc Runi₂ , Suni)
         (≣ε-weaken Γ inc eqR₁R₂ , ≣-refl σ S)
-    ≣-eval {Γ} {Δ} {τ} (t `$ u) {R₁} Runi₁ {R₂} Runi₂ eqR₁R₂ with Uni-eval t Runi₁
+    ≣-eval {_} {Γ} {Δ} {τ} (t `$ u) {R₁} Runi₁ {R₂} Runi₂ eqR₁R₂ with Uni-eval t Runi₁
     ... | h₁ , h₂ , h₃ =
       Begin[ Δ ⊩ τ ]
         Δ ⊩ τ ∋ eval t R₁ (same Δ) (eval u R₁)
@@ -623,7 +647,7 @@ mutual
      (Uni-eval n Runi₁) (Uni-eval n Runi₂) (≣-eval n Runi₁ Runi₂ eqR₁R₂)
      (Uni-eval xs Runi₁) (Uni-eval xs Runi₂) (≣-eval xs Runi₁ Runi₂ eqR₁R₂)
 
-    weaken-vappend : ∀ σ {Γ Δ} (inc : Γ ⊆ Δ) (XS YS : Γ ⊩ `list σ) →
+    weaken-vappend : ∀ {n} (σ : ty n) {Γ Δ} (inc : Γ ⊆ Δ) (XS YS : Γ ⊩ `list σ) →
       [ `list σ ] ⊩-weaken (`list σ) inc (vappend σ XS YS) ≣
       vappend σ (⊩-weaken (`list σ) inc XS) (⊩-weaken (`list σ) inc YS)
     weaken-vappend σ inc `[] YS = ≣-refl (`list σ) _
@@ -631,7 +655,7 @@ mutual
     weaken-vappend σ inc (mappend F xs XS) YS =
      mappend (λ _ _ → ≣-refl σ _) refl (weaken-vappend σ inc XS YS)
 
-    weaken-vmap : ∀ σ τ {Γ Δ} (inc : Γ ⊆ Δ) {F : Γ ⊩ σ `→ τ} (Funi : Uni[ σ `→ τ ] F)
+    weaken-vmap : ∀ {n} (σ τ : ty n) {Γ Δ} (inc : Γ ⊆ Δ) {F : Γ ⊩ σ `→ τ} (Funi : Uni[ σ `→ τ ] F)
       (XS : Γ ⊩ `list σ) (XSuni : Uni[ `list σ ] XS) →
       [ `list τ ] ⊩-weaken (`list τ) inc (vmap σ τ F XS) ≣
       vmap σ τ (⊩-weaken (σ `→ τ) inc F) (⊩-weaken (`list σ) inc XS)
@@ -648,7 +672,8 @@ mutual
     weaken-vmap σ τ inc {F} Funi (mappend G xs YS) (Guni , YSuni) =
       mappend (λ _ _ → ≣-refl τ _) refl (weaken-vmap σ τ inc Funi YS YSuni)
 
-    weaken-vfold : ∀ σ τ {Γ Δ} (inc : Γ ⊆ Δ) {C : Γ ⊩ σ `→ τ `→ τ} (Cuni : Uni[ σ `→ τ `→ τ ] C)
+    weaken-vfold : ∀ {n} (σ τ : ty n) {Γ Δ} (inc : Γ ⊆ Δ)
+      {C : Γ ⊩ σ `→ τ `→ τ} (Cuni : Uni[ σ `→ τ `→ τ ] C)
       {N : Γ ⊩ τ} (Nuni : Uni[ τ ] N) (XS : Γ ⊩ `list σ) (XSuni : Uni[ `list σ ] XS) →
       [ τ ] ⊩-weaken τ inc (vfold σ τ C N XS) ≣
       vfold σ τ (⊩-weaken (σ `→ τ `→ τ) inc C) (⊩-weaken τ inc N) (⊩-weaken (`list σ) inc XS)
@@ -718,7 +743,7 @@ mutual
  {- Weakening of the evaluation of a term is the evaluation of
     the same term in a weakened environment. -}
 
-    weaken-eval : ∀ {Δ Ε} (inc : Δ ⊆ Ε) {Γ σ} (t : Γ ⊢ σ) {R : Δ ⊩ε Γ}
+    weaken-eval : ∀ {n} {Δ Ε : Con (ty n)} (inc : Δ ⊆ Ε) {Γ σ} (t : Γ ⊢ σ) {R : Δ ⊩ε Γ}
       (Runi : Uni[ Γ ]ε R) → [ σ ] ⊩-weaken σ inc (eval t R) ≣ eval t (⊩ε-weaken Γ inc R)
     weaken-eval inc (`v pr) {R} Runi = weaken-lookup inc pr R
     weaken-eval inc {Γ} {σ `→ τ} (`λ t) {R} Runi =
@@ -726,7 +751,7 @@ mutual
         (Uniε-weaken Γ (⊆-trans inc inc') Runi , Suni)
         (Uniε-weaken Γ inc' (Uniε-weaken Γ inc Runi) , Suni)
         (≣ε-sym Γ (≣ε-weaken² Γ inc inc' R) , ≣-refl σ S)
-    weaken-eval {Δ} {Ε} inc {Γ} {τ} (_`$_ {σ} t u) {R} Runi with Uni-eval t Runi
+    weaken-eval {_} {Δ} {Ε} inc {Γ} {τ} (_`$_ {σ} t u) {R} Runi with Uni-eval t Runi
     ... | h₁ , h₂ , h₃ =
       Begin[ Ε ⊩ τ ]
         Ε ⊩ τ ∋ ⊩-weaken τ inc (eval t R (same Δ) (eval u R))
@@ -746,7 +771,7 @@ mutual
     weaken-eval inc (`π₂ p) Runi = proj₂ (weaken-eval inc p Runi)
     weaken-eval inc `[] Runi = `[]
     weaken-eval inc (hd `∷ tl) Runi = weaken-eval inc hd Runi `∷ weaken-eval inc tl Runi
-    weaken-eval {Δ} {Ε} inc {Γ} {`list σ} (xs `++ ys) {R} Runi =
+    weaken-eval {_} {Δ} {Ε} inc {Γ} {`list σ} (xs `++ ys) {R} Runi =
       Begin[ Ε ⊩ `list σ ]
         Ε ⊩ `list σ ∋ _
         ≣⟨ weaken-vappend σ inc (eval xs R) (eval ys R) ⟩
@@ -754,7 +779,7 @@ mutual
         ≣⟨ ≣-vappend σ (weaken-eval inc xs Runi) (weaken-eval inc ys Runi) ⟩
         Ε ⊩ `list σ ∋ _
       Qed
-    weaken-eval {Δ} {Ε} inc {Γ} (`map {σ} {τ} f xs) {R} Runi =
+    weaken-eval {_} {Δ} {Ε} inc {Γ} (`map {σ} {τ} f xs) {R} Runi =
       Begin[ Ε ⊩ `list τ ]
         Ε ⊩ `list τ ∋ _
         ≣⟨ weaken-vmap σ τ inc (Uni-eval f Runi) (eval xs R) (Uni-eval xs Runi) ⟩
@@ -764,7 +789,7 @@ mutual
            (Uni-eval xs (Uniε-weaken Γ inc Runi)) (weaken-eval inc xs Runi) ⟩
         Ε ⊩ `list τ ∋ _
       Qed
-    weaken-eval {Δ} {Ε} inc {Γ} (`fold {σ} {τ} c n xs) {R} Runi =
+    weaken-eval {_} {Δ} {Ε} inc {Γ} (`fold {σ} {τ} c n xs) {R} Runi =
       let Runi' = Uniε-weaken Γ inc Runi in
       Begin[ Ε ⊩ τ ]
         Ε ⊩ τ ∋ ⊩-weaken τ inc (eval (`fold c n xs) R)
@@ -779,37 +804,38 @@ mutual
 
 abstract
 
-  Uniε-eval : ∀ {Δ Ε} Γ (γ : Δ ⊢ε Γ) {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) → Uni[ Γ ]ε (εeval Γ γ R)
+  Uniε-eval : ∀ {n Δ Ε} (Γ : Con (ty n)) (γ : Δ ⊢ε Γ)
+    {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) → Uni[ Γ ]ε (εeval Γ γ R)
   Uniε-eval ε γ Runi = γ
   Uniε-eval (Γ ∙ σ) (γ , g) Runi = Uniε-eval Γ γ Runi , Uni-eval g Runi
 
-  ≣ε-eval : ∀ {Δ Ε} Γ (γ : Δ ⊢ε Γ) {R₁ R₂ : Ε ⊩ε Δ} (Runi₁ : Uni[ Δ ]ε R₁) (Runi₂ : Uni[ Δ ]ε R₂)
-    (eqR₁R₂ : [ Δ ] R₁ ≣ε R₂) → [ Γ ] εeval Γ γ R₁ ≣ε εeval Γ γ R₂
+  ≣ε-eval : ∀ {n Δ Ε} (Γ : Con (ty n)) (γ : Δ ⊢ε Γ) {R₁ R₂ : Ε ⊩ε Δ} (Runi₁ : Uni[ Δ ]ε R₁)
+    (Runi₂ : Uni[ Δ ]ε R₂) (eqR₁R₂ : [ Δ ] R₁ ≣ε R₂) → [ Γ ] εeval Γ γ R₁ ≣ε εeval Γ γ R₂
   ≣ε-eval ε γ Runi₁ Runi₂ eqR₁R₂ = tt
   ≣ε-eval (Γ ∙ σ) (γ , g) Runi₁ Runi₂ eqR₁R₂ =
     ≣ε-eval Γ γ Runi₁ Runi₂ eqR₁R₂ , ≣-eval g Runi₁ Runi₂ eqR₁R₂
 
-  weaken-εeval : ∀ Γ {Ε Φ} (inc : Ε ⊆ Φ) {Δ} (γ : Δ ⊢ε Γ) {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) →
-    [ Γ ] ⊩ε-weaken Γ inc (εeval Γ γ R) ≣ε εeval Γ γ (⊩ε-weaken Δ inc R)
+  weaken-εeval : ∀ {n} Γ {Ε Φ : Con (ty n)} (inc : Ε ⊆ Φ) {Δ} (γ : Δ ⊢ε Γ) {R : Ε ⊩ε Δ}
+    (Runi : Uni[ Δ ]ε R) → [ Γ ] ⊩ε-weaken Γ inc (εeval Γ γ R) ≣ε εeval Γ γ (⊩ε-weaken Δ inc R)
   weaken-εeval ε inc γ Runi = tt
   weaken-εeval (Γ ∙ σ) inc (γ , g) Runi = weaken-εeval Γ inc γ Runi , weaken-eval inc g Runi
 
-≡-to-≣ε : ∀ Γ {Δ} {R₁ R₂ : Δ ⊩ε Γ} (eq : R₁ ≡ R₂) → [ Γ ] R₁ ≣ε R₂
+≡-to-≣ε : ∀ {n} Γ {Δ : Con (ty n)} {R₁ R₂ : Δ ⊩ε Γ} (eq : R₁ ≡ R₂) → [ Γ ] R₁ ≣ε R₂
 ≡-to-≣ε Γ refl = ≣ε-refl Γ _
 
 abstract
 
-  lookup-weaken : ∀ {σ Γ} (pr : σ ∈ Γ) {Δ} (inc : Γ ⊆ Δ) {Ε} (R : Ε ⊩ε Δ) →
+  lookup-weaken : ∀ {n Γ} {σ : ty n} (pr : σ ∈ Γ) {Δ} (inc : Γ ⊆ Δ) {Ε} (R : Ε ⊩ε Δ) →
     [ σ ] lookup Δ (inc-in inc pr) R ≣ lookup Γ pr (⊩ε-purge inc R)
   lookup-weaken () base R
   lookup-weaken pr (step inc) (R , _) = lookup-weaken pr inc R
-  lookup-weaken {σ} here! (pop! inc) (_ , r) = ≣-refl σ r
+  lookup-weaken {σ = σ} here! (pop! inc) (_ , r) = ≣-refl σ r
   lookup-weaken (there pr) (pop! inc) (R , _) = lookup-weaken pr inc R
 
-  eval-weaken : ∀ {Γ σ} (t : Γ ⊢ σ) {Δ} (inc : Γ ⊆ Δ) {Ε} {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) →
-    [ σ ] eval (⊢-weaken inc t) R ≣ eval t (⊩ε-purge inc R)
+  eval-weaken : ∀ {n Γ} {σ : ty n} (t : Γ ⊢ σ) {Δ} (inc : Γ ⊆ Δ) {Ε}
+    {R : Ε ⊩ε Δ} (Runi : Uni[ Δ ]ε R) → [ σ ] eval (⊢-weaken inc t) R ≣ eval t (⊩ε-purge inc R)
   eval-weaken (`v pr) inc {Ε} {R} Runi = lookup-weaken pr inc R
-  eval-weaken {Γ} (`λ {σ} {τ} t) {Δ} inc {Ε} {R} Runi =
+  eval-weaken {Γ = Γ} (`λ {σ} {τ} t) {Δ} inc {Ε} {R} Runi =
     λ {Φ} inc' S Suni →
     let Runi' = Uniε-weaken Δ inc' Runi in
     Begin[ Φ ⊩ τ ]
@@ -849,14 +875,15 @@ abstract
     (Uni-eval (⊢-weaken inc n) Runi) (Uni-eval n Runi') (eval-weaken n inc Runi)
     (Uni-eval (⊢-weaken inc xs) Runi) (Uni-eval xs Runi') (eval-weaken xs inc Runi)
 
-  εeval-weaken : ∀ {Δ} Γ {γ : Δ ⊢ε Γ} {Ε} (inc : Δ ⊆ Ε) {Φ} {R : Φ ⊩ε Ε} (Runi : Uni[ Ε ]ε R) →
-    [ Γ ] εeval Γ (⊢ε-weaken Γ inc γ) R ≣ε εeval Γ γ (⊩ε-purge inc R)
+  εeval-weaken : ∀ {n Δ} (Γ : Con (ty n)) {γ : Δ ⊢ε Γ} {Ε} (inc : Δ ⊆ Ε) {Φ} {R : Φ ⊩ε Ε}
+    (Runi : Uni[ Ε ]ε R) → [ Γ ] εeval Γ (⊢ε-weaken Γ inc γ) R ≣ε εeval Γ γ (⊩ε-purge inc R)
   εeval-weaken ε inc Runi = tt
   εeval-weaken (Γ ∙ σ) {γ , g} inc Runi = εeval-weaken Γ inc Runi , eval-weaken g inc Runi
 
-  εeval-⊢ε-refl : ∀ {Δ} Γ {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) → [ Γ ] εeval Γ (⊢ε-refl Γ) R ≣ε R
+  εeval-⊢ε-refl : ∀ {n Δ} (Γ : Con (ty n)) {R : Δ ⊩ε Γ} (Runi : Uni[ Γ ]ε R) →
+    [ Γ ] εeval Γ (⊢ε-refl Γ) R ≣ε R
   εeval-⊢ε-refl ε Runi = tt
-  εeval-⊢ε-refl {Δ} (Γ ∙ σ) {R , r} (Runi , runi) =
+  εeval-⊢ε-refl {Δ = Δ} (Γ ∙ σ) {R , r} (Runi , runi) =
     (Begin[ Δ ⊩ε Γ ]
        Δ ⊩ε Γ ∋ εeval Γ (⊢ε-weaken Γ (step (same Γ)) (⊢ε-refl Γ)) (R , r)
        ≣⟨ εeval-weaken Γ (step (same Γ)) (Runi , runi) ⟩

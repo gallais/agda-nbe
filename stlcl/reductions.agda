@@ -9,19 +9,19 @@ open import stlcl.definition
 
 {- and their compatibility with weakening -}
 
-η-weaken : ∀ {Γ Δ σ τ} (pr : Γ ⊆ Δ) (t : Γ ⊢ σ `→ τ) →
+η-weaken : ∀ {n Γ Δ} {σ τ : ty n} (pr : Γ ⊆ Δ) (t : Γ ⊢ σ `→ τ) →
            ⊢-weaken pr (η-expand t) ≡ η-expand (⊢-weaken pr t)
 η-weaken pr t =
   cong (λ t → `λ (t `$ `v here!)) (trans (⊢-weaken² _ _ t)
   (trans (cong (λ pr → ⊢-weaken pr t) (⊆-step-same pr)) (sym (⊢-weaken² _ _ t))))
 
-β-weaken : ∀ {Γ Δ σ τ} (pr : Γ ⊆ Δ) (t : Γ ∙ σ ⊢ τ) (s : Γ ⊢ σ) →
+β-weaken : ∀ {n Γ Δ} {σ τ : ty n} (pr : Γ ⊆ Δ) (t : Γ ∙ σ ⊢ τ) (s : Γ ⊢ σ) →
            ⊢-weaken pr (β-reduce t s) ≡ β-reduce (⊢-weaken (pop! pr) t) (⊢-weaken pr s)
-β-weaken {Γ} {Δ} pr t s =
+β-weaken {_} {Γ} {Δ} pr t s =
   trans (weaken-subst pr t (⊢ε-refl Γ , s)) (trans (cong (λ ρ → subst t (ρ , ⊢-weaken pr s))
   (sym (purge-⊢ε-refl pr))) (sym (subst-weaken (pop! pr) t (⊢ε-refl Δ , ⊢-weaken pr s))))
 
-`∘-weaken : ∀ {Γ Δ σ τ υ} (inc : Γ ⊆ Δ) (g : Γ ⊢ τ `→ υ) (f : Γ ⊢ σ `→ τ) →
+`∘-weaken : ∀ {n Γ Δ} {σ τ υ : ty n} (inc : Γ ⊆ Δ) (g : Γ ⊢ τ `→ υ) (f : Γ ⊢ σ `→ τ) →
             ⊢-weaken inc (g `∘ f) ≡ ⊢-weaken inc g `∘ ⊢-weaken inc f
 `∘-weaken inc g f =
   cong₂ (λ g f → `λ (g `$ (f `$ `v here!)))
@@ -34,7 +34,7 @@ open import stlcl.definition
 
 infix 5 _⊢_∋_↝_ _⊢_∋_↝⋆_ _⊢_∋_≅_
 
-data _⊢_∋_↝_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
+data _⊢_∋_↝_ {n} (Γ : Con (ty n)) : (τ : ty n) (s t : Γ ⊢ τ) → Set where
 -- structural rules
   `λ : ∀ {σ τ s t} (r : Γ ∙ σ ⊢ τ ∋ s ↝ t) → Γ ⊢ σ `→ τ ∋ `λ s ↝ `λ t
   `$₁ : ∀ {σ τ f g x} (r : Γ ⊢ σ `→ τ ∋ f ↝ g) → Γ ⊢ τ ∋ f `$ x ↝ g `$ x
@@ -50,7 +50,7 @@ data _⊢_∋_↝_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
   `map₁ : ∀ {σ τ f g xs} (r : Γ ⊢ σ `→ τ ∋ f ↝ g) → Γ ⊢ `list τ ∋ `map f xs ↝ `map g xs
   `map₂ : ∀ {σ τ f xs ys} (r : Γ ⊢ `list σ ∋ xs ↝ ys) → Γ ⊢ `list τ ∋ `map f xs ↝ `map f ys
   `fold₁ : ∀ {σ τ c d n xs} (r : Γ ⊢ σ `→ τ `→ τ ∋ c ↝ d) → Γ ⊢ τ ∋ `fold c n xs ↝ `fold d n xs
-  `fold₂ : ∀ {σ τ c m n xs} (r : Γ ⊢ τ ∋ m ↝ n) → Γ ⊢ τ ∋ `fold {_} {σ} c m xs ↝ `fold c n xs
+  `fold₂ : ∀ {σ τ c m n xs} (r : Γ ⊢ τ ∋ m ↝ n) → Γ ⊢ τ ∋ `fold {σ = σ} c m xs ↝ `fold c n xs
   `fold₃ : ∀ {σ τ c n xs ys} (r : Γ ⊢ `list σ ∋ xs ↝ ys) → Γ ⊢ τ ∋ `fold c n xs ↝ `fold c n ys
 -- beta laws
   `βλ : ∀ {σ τ t} {u : Γ ⊢ σ} → Γ ⊢ τ ∋ `λ t `$ u ↝ β-reduce t u
@@ -61,8 +61,8 @@ data _⊢_∋_↝_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
   `βmap₁ : ∀ {σ τ} {f : Γ ⊢ σ `→ τ} → Γ ⊢ `list τ ∋ `map f `[] ↝ `[]
   `βmap₂ : ∀ {σ τ} {f : Γ ⊢ σ `→ τ} {hd tl} →
           Γ ⊢ `list τ ∋ `map f (hd `∷ tl) ↝ (f `$ hd) `∷ `map f tl
-  `βfold₁ : ∀ {σ τ c n} → Γ ⊢ τ ∋ `fold {_} {σ} c n `[] ↝ n
-  `βfold₂ : ∀ {σ τ c n hd tl} → Γ ⊢ τ ∋ `fold {_} {σ} c n (hd `∷ tl) ↝ c `$ hd `$ `fold c n tl
+  `βfold₁ : ∀ {σ τ c n} → Γ ⊢ τ ∋ `fold {σ = σ} c n `[] ↝ n
+  `βfold₂ : ∀ {σ τ c n hd tl} → Γ ⊢ τ ∋ `fold {σ = σ} c n (hd `∷ tl) ↝ c `$ hd `$ `fold c n tl
 -- eta laws
   `ηλ : ∀ {σ τ} f → Γ ⊢ σ `→ τ ∋ f ↝ η-expand f
   `η× : ∀ {σ τ} t → Γ ⊢ σ `× τ ∋ t ↝ `π₁ t `, `π₂ t
@@ -72,13 +72,13 @@ data _⊢_∋_↝_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
            Γ ⊢ `list τ ∋ `map f (xs `++ ys) ↝ `map f xs `++ `map f ys
   `ηmap₃ : ∀ {σ τ υ} (g : Γ ⊢ τ `→ υ) (f : Γ ⊢ σ `→ τ) (xs : Γ ⊢ `list σ) →
            Γ ⊢ `list υ ∋ `map g (`map f xs) ↝ `map (g `∘ f) xs
-  `ηfold₁ : ∀ {σ τ c n} xs ys → Γ ⊢ τ ∋ `fold {_} {σ} c n (xs `++ ys) ↝ `fold c (`fold c n ys) xs
+  `ηfold₁ : ∀ {σ τ c n} xs ys → Γ ⊢ τ ∋ `fold {σ = σ} c n (xs `++ ys) ↝ `fold c (`fold c n ys) xs
   `ηfold₂ : ∀ {σ τ υ n} c f xs →
-            Γ ⊢ τ ∋ `fold {_} {σ} c n (`map {_} {υ} f xs) ↝ `fold (c `∘ f) n xs
+            Γ ⊢ τ ∋ `fold {σ = σ} c n (`map {σ = υ} f xs) ↝ `fold (c `∘ f) n xs
   `η++₁ : ∀ {σ} t → Γ ⊢ `list σ ∋ t ↝ t `++ `[]
   `η++₂ : ∀ {σ} xs ys zs → Γ ⊢ `list σ ∋ (xs `++ ys) `++ zs ↝ xs `++ (ys `++ zs)
 
-↝-weaken : ∀ {Γ Δ σ s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ↝ t) →
+↝-weaken : ∀ {n Γ Δ} {σ : ty n} {s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ↝ t) →
             Δ ⊢ σ ∋ ⊢-weaken inc s ↝ ⊢-weaken inc t
 ↝-weaken inc (`λ r) = `λ (↝-weaken (pop! inc) r)
 ↝-weaken inc (`$₁ r) = `$₁ (↝-weaken inc r)
@@ -118,17 +118,17 @@ data _⊢_∋_↝_ (Γ : Con ty) : (τ : ty) (s t : Γ ⊢ τ) → Set where
 ↝-weaken inc (`η++₁ t) = `η++₁ (⊢-weaken inc t)
 ↝-weaken inc (`η++₂ xs ys zs) = `η++₂ (⊢-weaken inc xs) (⊢-weaken inc ys) (⊢-weaken inc zs)
 
-_⊢_∋_↝⋆_ : ∀ (Γ : Con ty) (τ : ty) (s t : Γ ⊢ τ) → Set
+_⊢_∋_↝⋆_ : ∀ {n} Γ (τ : ty n) (s t : Γ ⊢ τ) → Set
 Γ ⊢ σ ∋ s ↝⋆ t = s ▹[ _⊢_∋_↝_ Γ σ ]⋆ t
 
-↝⋆-weaken : ∀ {Γ Δ σ s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ↝⋆ t) →
+↝⋆-weaken : ∀ {n Γ Δ} {σ : ty n} {s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ↝⋆ t) →
             Δ ⊢ σ ∋ ⊢-weaken inc s ↝⋆ ⊢-weaken inc t
 ↝⋆-weaken inc r = ▹⋆-cong (↝-weaken inc) r
 
-_⊢_∋_≅_ : ∀ (Γ : Con ty) (τ : ty) (s t : Γ ⊢ τ) → Set
+_⊢_∋_≅_ : ∀ {n} Γ (τ : ty n) (s t : Γ ⊢ τ) → Set
 Γ ⊢ σ ∋ s ≅ t = s ≡[ _⊢_∋_↝_ Γ σ ]⋆ t
 
-≅-weaken : ∀ {Γ Δ σ s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ≅ t) →
+≅-weaken : ∀ {n Γ Δ} {σ : ty n} {s t} (inc : Γ ⊆ Δ) (r : Γ ⊢ σ ∋ s ≅ t) →
             Δ ⊢ σ ∋ ⊢-weaken inc s ≅ ⊢-weaken inc t
 ≅-weaken inc r = ≡⋆-cong (↝-weaken inc) r
 
@@ -138,19 +138,19 @@ infix  3 _⊢_∋_Qed
 infixr 2 _⊢_∋_↝⋆⟨_⟩_ _⊢_∋_↝⟨_⟩_ _⊢_∋_≡⟨_⟩_
 infix  1 Proof[_⊢_]_
 
-Proof[_⊢_]_ : ∀ Γ σ {s t : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝⋆ t) → Γ ⊢ σ ∋ s ↝⋆ t
+Proof[_⊢_]_ : ∀ {n} Γ (σ : ty n) {s t : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝⋆ t) → Γ ⊢ σ ∋ s ↝⋆ t
 Proof[ Γ ⊢ σ ] eq = eq
 
-_⊢_∋_≡⟨_⟩_ : ∀ Γ σ s {t u : Γ ⊢ σ} (eq : s ≡ t) (eq' : Γ ⊢ σ ∋ t ↝⋆ u) → Γ ⊢ σ ∋ s ↝⋆ u
+_⊢_∋_≡⟨_⟩_ : ∀ {n} Γ (σ : ty n) s {t u : Γ ⊢ σ} (eq : s ≡ t) (eq' : Γ ⊢ σ ∋ t ↝⋆ u) → Γ ⊢ σ ∋ s ↝⋆ u
 Γ ⊢ σ ∋ s ≡⟨ refl ⟩ eq = eq
 
-_⊢_∋_↝⋆⟨_⟩_ : ∀ Γ σ (s : Γ ⊢ σ) {t u : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝⋆ t)
+_⊢_∋_↝⋆⟨_⟩_ : ∀ {n} Γ (σ : ty n) (s : Γ ⊢ σ) {t u : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝⋆ t)
   (eq' : Γ ⊢ σ ∋ t ↝⋆ u) → Γ ⊢ σ ∋ s ↝⋆ u
 Γ ⊢ σ ∋ s ↝⋆⟨ eq ⟩ eq' = ▹⋆-trans eq eq'
 
-_⊢_∋_↝⟨_⟩_ : ∀ Γ σ (s : Γ ⊢ σ) {t u : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝ t)
+_⊢_∋_↝⟨_⟩_ : ∀ {n} Γ (σ : ty n) (s : Γ ⊢ σ) {t u : Γ ⊢ σ} (eq : Γ ⊢ σ ∋ s ↝ t)
   (eq' : Γ ⊢ σ ∋ t ↝⋆ u) → Γ ⊢ σ ∋ s ↝⋆ u
 Γ ⊢ σ ∋ s ↝⟨ eq ⟩ eq' = step eq eq'
 
-_⊢_∋_Qed : ∀ Γ σ (s : Γ ⊢ σ) → Γ ⊢ σ ∋ s ↝⋆ s
+_⊢_∋_Qed : ∀ {n} Γ (σ : ty n) (s : Γ ⊢ σ) → Γ ⊢ σ ∋ s ↝⋆ s
 Γ ⊢ σ ∋ s Qed = refl
